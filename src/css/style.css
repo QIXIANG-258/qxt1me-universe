@@ -1,0 +1,603 @@
+/* =========================================================
+   universe · 个人网页导航
+   基座：rjshkhr/startpage（MIT）—— 结构、类名、交互全部保留，
+   只替换「设计令牌 + 排版 + 质感」三件事，与憩想·摄影小站对齐。
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   ★ 配色令牌：原版用 RGB 三元组而非十六进制，因为 hover 要写
+     rgba(var(--x-rgb), .05) 做低透明度叠色。所以本文件同样保留
+     三元组写法 —— 换成十六进制会让那些 rgba() 全部失效。
+     每个值后面标出它对应 blog 的哪个 CSS 变量。
+   --------------------------------------------------------- */
+:root {
+  /* 页面底 = blog --bg(#0f0f0f)；卡片 = blog --card(#181818)。
+     ⚠️ 原版是「页底色比卡片亮」(页 #242B2D / 卡 #1D2326)，方向相反。
+     这里翻过来跟 blog 一致：底更深、卡片浮起来。 */
+  --bg-alt-rgb: 15, 15, 15;    /* 页底    ← blog --bg      */
+  --bg-rgb: 24, 24, 24;        /* 卡片    ← blog --card    */
+  --bg-2-rgb: 33, 33, 33;      /* 卡片加深 ← blog --card-2 */
+
+  --fg-rgb: 242, 241, 237;     /* 主文字  ← blog --ink     */
+  --fg-alt-rgb: 181, 180, 174; /* 次级    ← blog --ink-2   */
+  --fg-weak-rgb: 130, 129, 122;/* 弱       ← blog --ink-3   */
+
+  /* ★ 原版的三色（雾蓝 #7E9AAB / 陶土 #BC8F7D / 鼠尾草 #96B088）是
+     「反差」的根源：blog 的界面零彩度，颜色全部来自照片和色卡本身。
+     所以这里把三色降成同一暖灰系的三个明度档，只靠「明度」区分分类。
+     三元组形式保留，hover 叠色照旧能算。 */
+  --primary-rgb: 242, 241, 237;   /* 分类一 ← blog --ink    */
+  --secondary-rgb: 181, 180, 174; /* 分类二 ← blog --ink-2  */
+  --tertiary-rgb: 130, 129, 122;  /* 分类三 ← blog --ink-3  */
+
+  /* 分隔线：原版没有描边，只靠阴影。blog 大量使用发丝线，补上。 */
+  --line-rgb: 255, 255, 255;
+
+  /* 反色（选中/悬停底色）← blog --hl / --hl-ink。
+     blog 的 ::selection 就是这一对，悬停沿用同一语义。 */
+  --hl-rgb: 242, 241, 237;
+  --hl-ink-rgb: 15, 15, 15;
+
+  /* 圆角：原版 1em / 0.5em 偏圆润；blog 控件是 5px、照片 2px */
+  --r: 5px;
+  --r-sm: 4px;
+
+  /* 阴影：原版是极轻的近距投影；blog 是更深更散的 */
+  --shadow: 0 18px 44px -22px rgba(0, 0, 0, .85);
+  --shadow-rest: 0 10px 26px -16px rgba(0, 0, 0, .6);
+
+  /* 版心与留白 ← blog --max / --pad */
+  --max: 1180px;
+  --pad: clamp(20px, 5vw, 72px);
+
+  /* 字族 ← blog 的同名变量。
+     注意 blog 的层级是「正文无衬线 + 标题衬线」，不是整站衬线。 */
+  --f-cn: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+  --f-serif: Georgia, "Times New Roman", "Songti SC", "STSong", serif;
+  --f-serif-d: "QX Serif", "Songti SC", "STSong", "SimSun", serif;
+  --f-script: "Great Vibes", "Snell Roundhand", "Brush Script MT", "Segoe Script", cursive;
+
+  --ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* ---------------------------------------------------------
+   浅色主题：数值全部取自 blog 的 html[data-theme="light"] 块，
+   同样换算成三元组。明度梯在浅色下方向不变 —— primary 取最强对比
+   （浅色下是近黑），这样「分类一最显眼」的层级关系两个主题一致。
+   --------------------------------------------------------- */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-alt-rgb: 240, 238, 234;   /* 页底  ← blog --bg   #f0eeea */
+  --bg-rgb: 251, 250, 248;       /* 卡片  ← blog --card #fbfaf8 */
+  --bg-2-rgb: 227, 224, 217;     /* ← blog --card-2   #e3e0d9 */
+
+  --fg-rgb: 22, 22, 22;          /* ← blog --ink      #161616 */
+  --fg-alt-rgb: 92, 91, 86;      /* ← blog --ink-2    #5c5b56 */
+  --fg-weak-rgb: 104, 103, 95;   /* ← blog --ink-3    #68675f */
+
+  --primary-rgb: 22, 22, 22;
+  --secondary-rgb: 92, 91, 86;
+  --tertiary-rgb: 104, 103, 95;
+
+  --line-rgb: 20, 20, 20;
+
+  --hl-rgb: 22, 22, 22;
+  --hl-ink-rgb: 255, 255, 255;
+
+  --shadow: 0 18px 44px -24px rgba(0, 0, 0, .35);
+  --shadow-rest: 0 10px 26px -18px rgba(0, 0, 0, .22);
+}
+
+/* 颗粒与顶部提亮在浅色下要反过来，否则白底上叠白噪点看不见、叠黑又太重 */
+html[data-theme="light"] body::after { opacity: .065; }
+html[data-theme="light"] body {
+  background-image: radial-gradient(1200px 600px at 50% -10%, rgba(0, 0, 0, .02), transparent 60%);
+}
+
+/* ---------------------------------------------------------
+   重置
+   ⚠️ 原版这里是 * { transition: 0.2s ease-in-out } —— 全属性过渡。
+   那会让 width/height/box-shadow 也参与过渡，悬停时触发布局与重绘，
+   而且和 blog「只过渡颜色」的做法不一致。这里收窄到三个颜色属性。
+   --------------------------------------------------------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  transition: background-color .25s var(--ease), color .25s var(--ease),
+              border-color .25s var(--ease);
+}
+/* 媒体元素自身不变色，摘掉过渡（照 blog 的处理） */
+img, svg, video, canvas { transition: none; }
+
+body {
+  background-color: rgb(var(--bg-alt-rgb));
+  color: rgb(var(--fg-rgb));
+  font-family: var(--f-cn);
+  font-size: 16px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* 顶部极淡的一层提亮 ← blog body */
+  background-image: radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, .02), transparent 60%);
+}
+
+/* 全站胶片颗粒 ← blog body::after。
+   静态 SVG 纹理 + pointer-events:none，无性能开销，不是动画。 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  opacity: .05;
+}
+
+::selection {
+  background: rgb(var(--hl-rgb));
+  color: rgb(var(--hl-ink-rgb));
+}
+
+/* 版心：原版 main 直接 flex 居中、无最大宽度下限，窄屏会把三栏挤扁。
+   ★ 现在是**单栏**（universe 只有一个真站，栏目按「站点」划分，
+     不再按 blog 的站内目录划分）。所以：
+       - 卡片撑满版心而不是挤在 15em 里
+       - 条目改成「左图标 + 站名 …… 右说明」的一行式，横向留白才有用处
+     以后加第二个站，直接再加一条 <a> 即可；要回到多栏就恢复 flex: 1 1 0。 */
+main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1.2em;
+  margin-top: 3em;
+  max-width: 44em;
+  margin-inline: auto;
+  padding-inline: var(--pad);
+}
+
+/* ---------------------------------------------------------
+   时钟 —— 原版 5rem 无衬线。这里换成衬线 QX Serif，
+   呼应 blog 的「月份日期」大字距衬线数字。字号加 clamp，
+   否则 5rem 在窄屏会顶出横向滚动条（原版没有处理这点）。
+   --------------------------------------------------------- */
+.clock {
+  text-align: center;
+  margin-top: 5em;
+}
+
+.clock-time {
+  font-family: var(--f-serif-d);
+  font-size: clamp(3rem, 11vw, 5rem);
+  font-weight: 300;
+  letter-spacing: .06em;
+  line-height: 1.1;
+  color: rgb(var(--fg-rgb));
+}
+
+.clock-date {
+  font-family: var(--f-serif);
+  font-size: .95rem;
+  margin-top: .5em;
+  letter-spacing: .24em;             /* ← blog 的 eyebrow 字距 */
+  text-transform: uppercase;
+  color: rgb(var(--fg-alt-rgb));
+}
+
+/* 描边图标靠 1px 细线表达细节，比实心图标更容易被背景吃掉。
+   原版 clock-date i 与 search-icon 都写着 --fg-alt 再加 opacity:.7，
+   等于在次强灰上又压一层 —— 细线会直接消失。这里取掉那层 opacity。 */
+.clock-date i {
+  margin-right: .5em;
+  color: rgb(var(--fg-alt-rgb));
+}
+
+/* ---------------------------------------------------------
+   搜索框
+   --------------------------------------------------------- */
+.search {
+  position: relative;
+  width: min(550px, calc(100% - 2 * var(--pad)));
+  margin: 2.6em auto 4.2em;
+}
+
+.search-input {
+  width: 100%;
+  padding: .85em 1.2em;
+  font-family: var(--f-cn);
+  font-size: 1rem;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-rgb));
+  border: 1px solid rgba(var(--line-rgb), .13);   /* ← blog --line */
+  border-radius: var(--r);
+  outline: none;
+  box-shadow: var(--shadow-rest);
+}
+
+.search-input::placeholder {
+  color: rgb(var(--fg-alt-rgb));
+  opacity: .7;
+  letter-spacing: .04em;
+}
+
+.search-input:hover {
+  border-color: rgba(var(--line-rgb), .22);
+}
+
+.search-input:focus {
+  border-color: rgba(var(--line-rgb), .34);
+  box-shadow: var(--shadow);
+}
+
+.search-icon {
+  position: absolute;
+  right: 1.2em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--fg-alt-rgb));
+  pointer-events: none;
+}
+
+/* 快捷键提示条 */
+.shortcut-hints {
+  position: absolute;
+  top: calc(100% + .6em);
+  left: 0;
+  right: 0;
+  padding: .8em;
+  background: rgb(var(--bg-rgb));
+  border: 1px solid rgba(var(--line-rgb), .13);
+  border-radius: var(--r);
+  display: none;
+  flex-wrap: wrap;
+  gap: .6em;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  z-index: 100;
+}
+
+.shortcut-hints span {
+  display: inline-flex;
+  align-items: center;
+  padding: .35em .7em;
+  font-size: .82rem;
+  letter-spacing: .05em;
+  border-radius: var(--r-sm);
+  color: rgb(var(--fg-alt-rgb));
+  background: rgba(var(--line-rgb), .05);
+}
+
+.search-input:focus ~ .shortcut-hints {
+  display: flex;
+}
+
+/* ---------------------------------------------------------
+   三栏容器
+   --------------------------------------------------------- */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1.4em 1.4em 1em;
+  border-radius: var(--r);
+  background-color: rgb(var(--bg-rgb));
+  border: 1px solid rgba(var(--line-rgb), .13);
+  box-shadow: var(--shadow-rest);
+}
+
+.container:hover {
+  border-color: rgba(var(--line-rgb), .2);
+  box-shadow: var(--shadow);
+}
+
+/* 分类标题：衬线 + 大字距 ← blog .sec-title 的处理，
+   三级明度梯代替原版的三色。 */
+.container h2 {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  font-family: var(--f-serif-d);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  margin: .2em 0 .9em;
+  padding-bottom: .7em;
+  width: 100%;
+  border-bottom: 1px solid rgba(var(--line-rgb), .09);
+}
+
+.social-container h2 { color: rgb(var(--primary-rgb)); }
+.dev-container h2    { color: rgb(var(--secondary-rgb)); }
+.general-container h2{ color: rgb(var(--tertiary-rgb)); }
+
+/* 链接：默认与正文同色；悬停铺一块反色 <-- blog 的 --hl / --hl-ink
+   （blog 的 ::selection 就是这一对，所以悬停读起来是同一套语言）。
+   原版的 ::before 结构原样保留，只是把「低透明度叠色」换成「反色填充」。
+   ★ 对齐从「居中」改成「左图标 + 站名 …… 右说明」的一行式：
+     单栏铺开之后横向有空间，把「这个站是什么」写到右边比居中堆叠有用。 */
+.container a {
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  width: 100%;
+  padding: .72em .8em;
+  margin: .1em 0;
+  color: rgb(var(--fg-rgb));
+  text-decoration: none;
+  font-size: .95rem;
+  font-weight: 400;
+  letter-spacing: .03em;
+  border-radius: var(--r-sm);
+  position: relative;
+  z-index: 1;
+}
+
+/* 站名占满剩余宽度，把说明推到最右 */
+.container a > span:first-of-type {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 右侧说明（域名 / 状态）。
+   ★ 用 ink-2 而不是 ink-3：ink-3 是「未上线/弱化」那一档，
+     如果在线站的说明也用 ink-3，它就和不远处的「筹备中」同色，
+     视觉上分不出「这个能点」和「这个还没做」。 */
+.container a .hint {
+  flex: 0 0 auto;
+  font-family: var(--f-serif);
+  font-size: .76rem;
+  letter-spacing: .12em;
+  color: rgb(var(--fg-alt-rgb));
+}
+
+.container a:hover .hint,
+.container a:focus-visible .hint { color: rgb(var(--hl-ink-rgb)); opacity: .7; }
+
+/* 「筹备中」弱化项：这里的说明才用最弱那一档 */
+.soon .hint { color: rgb(var(--fg-weak-rgb)); }
+
+.container a::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  z-index: -1;
+  border-radius: var(--r-sm);
+  background: rgb(var(--hl-rgb));
+  transition: width .22s var(--ease);
+}
+
+.container a:hover::before,
+.container a:focus-visible::before { width: 100%; }
+
+.container a:hover,
+.container a:focus-visible { color: rgb(var(--hl-ink-rgb)); }
+
+.container a:focus-visible {
+  outline: 1px solid rgba(var(--line-rgb), .34);
+  outline-offset: 2px;
+}
+
+/* 图标：原版靠 Font Awesome 字体图标（还走 cdnjs 外部 CDN）。
+   这里改成内联线性 SVG —— 无外部请求，且与 blog 的零追踪一致。
+   注意 .ico 是包在外面的 <i>，描边属性要落在里面的 <svg> 上。 */
+.ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  flex: 0 0 auto;
+}
+
+.ico svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* 1.5px 细线在小尺寸下会被压缩观感，靠不透明度补偿会直接糊掉，
+     所以这里不动它 —— 对比度由父元素选色负责（见下方注释）。 */
+}
+
+/* 个别图标需要实心点（如「关于」的 i 字上点）。CSS 的 fill:none 会盖掉
+   表现属性 fill="currentColor"，所以必须走类选择器。 */
+.ico .dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+.container h2 .ico {
+  width: .95em;
+  height: .95em;
+}
+
+.shortcut-hints .ico {
+  width: .95em;
+  height: .95em;
+}
+
+/* 未上线的站点：不可点，且明显比可点的弱一档。
+   结构与 .container a 保持一行式，只是没有 href。 */
+.soon {
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  width: 100%;
+  padding: .72em .8em;
+  margin: .1em 0;
+  font-size: .95rem;
+  letter-spacing: .03em;
+  color: rgb(var(--fg-weak-rgb));
+  border-radius: var(--r-sm);
+  cursor: default;
+  opacity: .62;
+}
+
+.soon > span:first-of-type {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 页脚：补一条 blog 风格的落款（原版没有页脚） */
+.foot {
+  max-width: var(--max);
+  margin: 5em auto 0;
+  padding: 1.6em var(--pad) 3em;
+  border-top: 1px solid rgba(var(--line-rgb), .07);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6em 1.4em;
+  align-items: baseline;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.foot-name {
+  font-family: var(--f-serif-d);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: .14em;             /* ← blog .foot-name */
+}
+
+.foot-note {
+  font-family: var(--f-serif);
+  font-size: .78rem;
+  letter-spacing: .12em;
+  color: rgb(var(--fg-weak-rgb));
+}
+
+/* 英文态署名走花体 ← blog 只用它做「英文站名的签名」。
+   ⚠️ 只给 .foot-name（内容固定是 latin 的 "universe"）。
+   绝不能再套到 .clock-date 上 —— 两个原因：
+     ① Great Vibes 只含 latin 字形，日期里一旦出现中文会掉字形；
+     ② 日期是要读的信息，花体（尤其再叠 letter-spacing/uppercase）直接读不出来。
+   这条曾经写错过，探针里有一条守卫专门盯它。 */
+html[lang="en"] .foot-name {
+  font-family: var(--f-script);
+  font-size: 1.3rem;
+  font-weight: 400;
+  letter-spacing: .02em;
+}
+
+/* 右上角主题/语言小按钮（与 blog 同位置、同尺寸感） */
+.tools {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+/* 右上角工具按钮。
+   ⚠️ 对比度：字号只有 11.5px，属小字，AA 门槛 4.5:1。
+   原来用 --fg-alt（ink-2）压在半透明底上，实测浅色态只有 2.78 —— 不达标。
+   两处一起改：① 文字提到 --fg（ink，最强档）；
+             ② 底色从 rgba(...,.8) 改为不透明 —— 半透明会与页面底色混合，
+                对比度随滚动位置变化，无法保证。 */
+.tool-btn {
+  font-family: var(--f-cn);
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-2-rgb));
+  border: 1px solid rgba(var(--line-rgb), .18);
+  border-radius: var(--r);
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+.tool-btn:hover {
+  border-color: rgba(var(--line-rgb), .34);
+}
+
+/* ---------------------------------------------------------
+   404 页（src/404.html）—— 与首页同一套令牌，别让它长得像另一个站。
+   --------------------------------------------------------- */
+.notfound {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 62vh;
+  gap: 1.2em;
+  margin-top: 0;
+}
+
+.nf-code {
+  font-family: var(--f-serif-d);
+  font-size: clamp(4rem, 16vw, 9rem);
+  font-weight: 300;
+  letter-spacing: .08em;
+  line-height: 1;
+  color: rgb(var(--fg-weak-rgb));
+}
+
+.nf-text {
+  max-width: 30em;
+  color: rgb(var(--fg-alt-rgb));
+  font-size: .95rem;
+  line-height: 1.9;
+}
+
+.nf-back {
+  display: inline-flex;
+  align-items: center;
+  padding: .55em 1.4em;
+  border: 1px solid rgba(var(--line-rgb), .18);
+  border-radius: var(--r);
+  color: rgb(var(--fg-rgb));
+  font-size: .9rem;
+  letter-spacing: .12em;
+}
+
+.nf-back:hover {
+  background: rgb(var(--hl-rgb));
+  color: rgb(var(--hl-ink-rgb));
+  border-color: transparent;
+}
+
+/* ---------------------------------------------------------
+   响应式：原版在 880px 以下把三栏竖排。
+   补一条 —— 竖排后 max-width:15em 会让卡片变成窄长条，
+   这里放开宽度让它撑满版心。
+   --------------------------------------------------------- */
+@media (max-width: 880px) {
+  main {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.2em;
+    margin-top: 2em;
+  }
+
+  .container {
+    max-width: none;
+    width: 100%;
+  }
+
+  .clock { margin-top: 4em; }
+  .foot { flex-direction: column; align-items: flex-start; }
+}
+
+/* 尊重系统的减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}

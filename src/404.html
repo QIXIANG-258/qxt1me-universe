@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0f0f" />
+    <meta name="robots" content="noindex" />
+    <title>没有这一页 · universe</title>
+
+    <script>
+      try {
+        var _t = localStorage.getItem("uvTheme");
+        if (_t === "light") document.documentElement.setAttribute("data-theme", "light");
+        var _l = localStorage.getItem("uvLang");
+        if (_l === "en") document.documentElement.setAttribute("lang", "en");
+      } catch (e) {}
+    </script>
+
+    <link rel="stylesheet" href="css/fonts.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="notfound">
+      <div class="nf-code">404</div>
+      <p class="nf-text" data-zh="这里没有要去的页面。地址可能打错了，或者它还没建好。"
+         data-en="Nothing lives here. The address may be wrong, or the page isn't built yet.">
+        这里没有要去的页面。地址可能打错了，或者它还没建好。
+      </p>
+      <a class="nf-back" href="/">
+        <span data-zh="回到入口" data-en="Back to the entry">回到入口</span>
+      </a>
+    </main>
+
+    <footer class="foot">
+      <span class="foot-name">universe</span>
+      <span class="foot-note" data-zh="憩想 · 个人站群总入口" data-en="Qi Xiang · entry to my sites">憩想 · 个人站群总入口</span>
+    </footer>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>

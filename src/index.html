@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0f0f" />
+    <meta name="description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
+    <meta name="robots" content="index, follow" />
+    <title>universe · 憩想</title>
+
+    <!-- 首帧应用已保存的主题与语言，避免深/浅切换与中英切换时闪一下 -->
+    <script>
+      try {
+        var _t = localStorage.getItem("uvTheme");
+        if (_t === "light") document.documentElement.setAttribute("data-theme", "light");
+        var _l = localStorage.getItem("uvLang");
+        if (_l === "en") document.documentElement.setAttribute("lang", "en");
+      } catch (e) {}
+    </script>
+
+    <!-- 自托管字体声明（从 blog 机械抽取，勿手改；见 _tools/extract_fonts.py） -->
+    <link rel="stylesheet" href="css/fonts.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- 右上角工具条：明暗 + 中英，与 blog 的控件位置和尺寸感一致 -->
+    <div class="tools">
+      <button type="button" class="tool-btn" id="langBtn" aria-label="切换语言 / Switch language">EN</button>
+      <button type="button" class="tool-btn" id="themeBtn" aria-label="切换明暗主题 / Toggle theme">◐</button>
+    </div>
+
+    <div class="clock">
+      <div class="clock-time" id="clockTime">--:--</div>
+      <div class="clock-date">
+        <i class="ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        </i>
+        <span id="clockDate"></span>
+      </div>
+    </div>
+
+    <div class="search">
+      <input
+        type="text"
+        class="search-input"
+        id="searchInput"
+        placeholder="搜索…"
+        data-zh="搜索…"
+        data-en="Search…"
+        aria-label="搜索 / Search"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <i class="ico search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      </i>
+      <div class="shortcut-hints">
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.4-3.8-8.5S9.5 5.9 12 3.5z"/></svg></i> 直接回车 = 搜索</span>
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/></svg></i> ph: 摄影小站</span>
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></i> b: 必应</span>
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></i> ddg: DuckDuckGo</span>
+      </div>
+    </div>
+
+    <main>
+      <!-- ★ 分栏一：站点（最亮的一档明度，主入口） -->
+      <div class="container social-container">
+        <h2>
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.4-3.8-8.5S9.5 5.9 12 3.5z"/></svg>
+          </i>
+          <span data-zh="站点" data-en="Sites">站点</span>
+        </h2>
+        <a href="https://blog.qxt1me.dpdns.org/">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/></svg>
+          </i>
+          <span data-zh="摄影小站" data-en="Photo Journal">摄影小站</span>
+          <span class="hint">blog.qxt1me.dpdns.org</span>
+        </a>
+        <span class="soon" aria-disabled="true">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 7.5h17v3H4z"/><path d="M5 10.5v9h14v-9"/><path d="M10 14h4"/></svg>
+          </i>
+          <span data-zh="器材库" data-en="Gear DB">器材库</span>
+          <span class="hint" data-zh="筹备中" data-en="in progress">筹备中</span>
+        </span>
+      </div>
+
+      <!-- ★ 这里原本还有两栏，都已整栏移除，理由是同一个：
+           「一个站只出现一次」。
+             · 原「内容」栏：影集 / 延时 / 闲聊 / 每日颜色 —— 四条全落回 blog 首页
+             · 原「关于」栏：关于我 / 音乐 / 联系       —— 三条也全落回 blog 首页
+           universe 的职责是「指到哪个站」；blog 的站内导航
+           （影集 / 延时 / 闲聊 / 关于 / 音乐）由 blog 自己的顶栏负责。
+           加第二个站时，在「站点」栏再加一条 <a> 即可：
+             <a href="https://新站地址/">
+               <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24">…</svg></i>
+               <span data-zh="站名" data-en="Name">站名</span>
+               <span class="hint">域名或说明</span>
+             </a>
+           还没上线的站用 <span class="soon">（不可点、弱一档）而不是死链。 -->
+    </main>
+
+    <footer class="foot">
+      <span class="foot-name">universe</span>
+      <span class="foot-note" data-zh="憩想 · 个人站群总入口" data-en="Qi Xiang · entry to my sites">憩想 · 个人站群总入口</span>
+    </footer>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>

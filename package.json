@@ -1,0 +1,13 @@
+{
+  "name": "qxt1me-universe",
+  "private": true,
+  "description": "憩想的个人站群总入口（universe）—— 纯静态导航页",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "dry": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
+  }
+}
