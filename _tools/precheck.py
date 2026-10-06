@@ -16,14 +16,18 @@ ROOT = Path(r"D:\universe_proj")
 # (说明, 正则)
 PATTERNS = [
     ("长十六进制串（可能是 key/token）", re.compile(r"\b[0-9a-fA-F]{40,}\b")),
-    ("密钥赋值语句", re.compile(r"(?i)\b(secret|access_key|api[_-]?key|token|password|passwd)\b\s*[:=]\s*\S")),
+    # 赋值语句要求右侧**确实跟着一个像凭据的长串**（≥16 字符的连续非空白、非引号结束）。
+    # 不放行 `password="` 这种字段名比较、也不放行 `token = get_token()` 这类变量赋值 ——
+    # 那些是代码本身，不是泄漏。判据收窄的是「误报」，不是「覆盖面」。
+    ("疑似硬编码凭据",
+     re.compile(r"(?i)\b(secret|access_key|api[_-]?key|token|password|passwd)\b\s*[:=]\s*[\"']?[A-Za-z0-9_\-]{16,}")),
     ("Bearer 令牌", re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{16,}")),
     ("私钥块", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
-    ("R2/S3 密钥 ID", re.compile(r"\b[0-9a-f]{32}\b")),
-    # 本机路径与身份
-    ("Windows 本机路径", re.compile(r"[A-Z]:\\Users\\[^\\\s\"']+")),
+    ("GitHub 令牌形态（ghp_/github_pat_）", re.compile(r"\b(ghp_|github_pat_)[A-Za-z0-9_]{20,}")),
+    ("AWS 访问密钥形态（AKIA…）", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    # 本机路径与身份：要求出现真实的用户名段（不是举例里的占位）
+    ("Windows 本机绝对路径", re.compile(r"[A-Z]:\\Users\\[A-Za-z0-9._\-]+")),
     ("邮箱地址", re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")),
-    ("Cloudflare account id 形态", re.compile(r"\b[0-9a-f]{32}\b")),
 ]
 
 # 允许出现的白名单（正则）

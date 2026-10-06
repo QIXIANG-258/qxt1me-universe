@@ -1,0 +1,40 @@
+universe · 个人站群总入口
+Copyright (C) 2026 QX_t1me
+
+本作品是自由软件，依据 GNU 通用公共许可证第 3 版（GPL-3.0）发布。
+你可以依据该许可证条款再分发和/或修改它。
+许可证全文见同目录的 LICENSE 文件，或见 <https://www.gnu.org/licenses/>。
+
+本程序按「现状」提供，不附带任何担保，甚至不包含适销性或特定用途适用性的默示担保。
+详见 LICENSE。
+
+
+派生关系
+========
+
+本项目基于下列作品派生：
+
+  rjshkhr/startpage
+  https://github.com/rjshkhr/startpage
+  许可证：GPL-3.0
+
+派生方式：保留上游的 HTML 结构、CSS 类名与 JS 交互逻辑，
+替换了设计令牌（配色）、字体层级、图标实现（Font Awesome → 内联线性 SVG）、
+内容文案，以及少量结构与交互。详见 README 的「与上游的其它差异」。
+
+依 GPL-3.0 第 5 条，本项目同样以 GPL-3.0 发布，完整源码即本仓库。
+
+
+第三方资源
+==========
+
+自托管字体（仅字体文件本身的权利归各自权利人，不受本项目 GPL 约束）：
+
+  QX Serif
+      由思源宋体（Source Han Serif）按字符子集化生成。
+      思源宋体采用 SIL Open Font License 1.1 发布。
+      https://github.com/adobe-fonts/source-han-serif
+
+  Great Vibes
+      采用 SIL Open Font License 1.1 发布。
+      https://fonts.google.com/specimen/Great+Vibes

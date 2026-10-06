@@ -2,8 +2,13 @@
 
 憩想的个人站群总入口（**universe**）—— blog 摄影小站只是其中一个子站。
 
-本目录是 **startpage 模板的「换皮」原型**：结构、类名、交互沿用上游，
-只替换配色 / 排版 / 质感，让它和 `Photo_proj`（憩想·摄影小站）看起来是同一个人的东西。
+本目录是 **startpage 模板的「换皮」**：结构、类名、交互沿用上游，
+只替换配色 / 排版 / 质感，让每个子站看起来是同一个人的东西。
+
+| | |
+|---|---|
+| 线上 | <https://universe.qxt1me.dpdns.org> |
+| 仓库 | <https://github.com/QIXIANG-258/qxt1me-universe> |
 
 ---
 
@@ -13,12 +18,18 @@
 |---|---|
 | 上游 | [rjshkhr/startpage](https://github.com/rjshkhr/startpage) |
 | 上游许可 | **GPL-3.0** |
+| 本项目许可 | **GPL-3.0**（派生作品，义务同源） |
 | 改动范围 | 设计令牌、字体层级、图标实现、内容文案、少量结构与交互 |
 
-> ⚠️ GPL-3.0 是**传染性**许可：本目录一旦对外分发（含部署上线后提供源码），
-> 需要同样以 GPL-3.0 开放源码。
-> 若不想受此约束，只有两条路：**重写一个自己的单页入口**（结构简单，约 200 行），
-> 或换用 MIT / Unlicense 的基座（如 `xvvvyz/tilde` 是 Unlicense）。
+许可证全文见 [LICENSE](LICENSE)，派生关系与第三方字体说明见 [NOTICE](NOTICE)。
+
+> **为什么必须是 GPL-3.0：** 上游是 GPL-3.0，而 GPL 是传染性（copyleft）许可 ——
+> 派生作品再分发时须以同一许可发布，并提供完整源码。
+> 本站已公开可访问，这构成分发行为；本仓库公开即履行了源码提供义务。
+>
+> **如果你要拿这份代码做自己的站**，同样需要以 GPL-3.0 开源。
+> 若不想受此约束，只有两条路：照自己的设计重写一个单页入口（结构简单，约 200 行），
+> 或换用宽松许可的基座（如 `xvvvyz/tilde` 是 Unlicense 公有领域式）。
 
 ---
 
@@ -155,12 +166,12 @@ Cloudflare 凭据本机已登录（`%APPDATA%\xdg.config\.wrangler\config\defaul
 所以直接：
 
 ```bash
-cd D:\universe_proj
-npx --yes wrangler@4 deploy      # 首次会问是否创建名为 qxt1me-universe 的 Worker，答 y
+cd /d D:\universe_proj
+npx --yes wrangler@4 deploy
 ```
 
-产出 `https://qxt1me-universe.<子域>.workers.dev` 预览地址。
-之后在控制台绑自定义域即可。
+产出 `https://qxt1me-universe.2088801789.workers.dev`（Workers 预览入口），
+自定义域 `universe.qxt1me.dpdns.org` 已在控制台绑定。
 
 > ⚠️ **必须钉住 `@4`，不要只写 `npx wrangler`。**
 > 本机 npx 缓存里同时存在 wrangler **3.114.17** 和 **4.147.0**。
@@ -169,22 +180,16 @@ npx --yes wrangler@4 deploy      # 首次会问是否创建名为 qxt1me-univers
 > 判据：正确运行时会打印 `✨ Read N files from the assets directory`（本项目 N=13，10 个文件 + 3 个目录），
 > v3 没有这一行。`package.json` 里也钉了 `wrangler ^4.147.0`。
 
-**适合**：先看效果、还没决定域名和许可的时候。
+> ⚠️ **在 cmd 里切盘符必须用 `cd /d`。** 只写 `cd <盘符>:\<路径>` 在 cmd 中
+> **不会换盘**（且不报错），prompt 仍停在原盘符，wrangler 于是在用户主目录里
+> 找不到配置、转入自动配置流程，把 Windows 用户名当成 Worker 名。
+> 判断有没有进对目录：看 prompt 是否变成项目所在盘符，以及输出里有没有那行 `Read N files`。
 
-### 路线 B：Git 集成（与 blog 同构，`git push` 即上线）
+### 自动部署（可选）
 
-1. **建仓库**（无 `gh` CLI，用 API 建）：
-
-   ```bash
-   # 这台机器直连 github.com 会 403，必须走代理
-   git config --global http.proxy  http://127.0.0.1:7897
-   git config --global https.proxy http://127.0.0.1:7897
-   ```
-
-2. 首次提交并推送（见下方「Git 注意事项」）。
-3. Cloudflare 控制台 → Workers → 连接 Git 仓库 → 选 `qxt1me-universe`，
-   **构建命令留空**，输出目录填 `src`。
-4. 绑自定义域。
+仓库已公开。若要 `git push` 即上线，在 Cloudflare 控制台
+→ Workers → 连接 Git 仓库 → 选 `qxt1me-universe`，
+**构建命令留空**，输出目录填 `src`。
 
 ---
 
