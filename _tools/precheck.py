@@ -11,7 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(r"D:\universe_proj")
+# 用脚本自身位置推导项目根，不写死盘符路径（站群搬过一次，写死的全失效了）
+ROOT = Path(__file__).resolve().parent.parent
 
 # (说明, 正则)
 PATTERNS = [

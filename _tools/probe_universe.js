@@ -23,11 +23,19 @@ const EDGE = process.env.EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Appl
 const PORT = Number(process.env.CDP_PORT || 9411);
 const URL_ = process.env.PROBE_URL || "http://127.0.0.1:8802/";
 /* 判据来源：**现读** blog 的 style.css 取设计令牌，不写死颜色常量。
-   路径可用环境变量 BLOG_CSS 覆盖 —— 这个仓库不含 blog 源码，
-   默认按「与 universe_proj 平级的 Photo_proj」找，找不到会明确报错。 */
-const BLOG_CSS =
-  process.env.BLOG_CSS ||
-  path.resolve(__dirname, "..", "..", "Photo_proj", "src", "css", "style.css");
+   路径按「站群新结构」推导，并兼容搬迁前的旧结构 —— 站群曾整体搬过一次
+   （D:\Photo_proj + D:\universe_proj → D:\QX_t1me_plan\{01-blog,02-universe}），
+   写死路径的脚本全部失效过。可用 BLOG_CSS 覆盖。 */
+const BLOG_CSS = (() => {
+  if (process.env.BLOG_CSS) return process.env.BLOG_CSS;
+  const up2 = path.resolve(__dirname, "..", "..");        // 站群根
+  const candidates = [
+    path.join(up2, "01-blog", "src", "css", "style.css"),   // 新结构
+    path.join(up2, "Photo_proj", "src", "css", "style.css"),// 搬迁前
+    path.join(up2, "..", "Photo_proj", "src", "css", "style.css"),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || candidates[0];
+})();
 const SHOT_DIR = process.env.SHOT_DIR || path.resolve(__dirname, "..", "_shots");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -231,16 +239,18 @@ const SNAPSHOT = `(() => {
       })),
 
     /* 明度层级：现在只有一栏（站点），所以不再验「三栏明度梯」，
-       改验仍然存在的三级层级：栏目标题 > 右侧说明 > 「筹备中」弱化项。
-       不绑定栏数，以后加站也不会因为结构变化而误报。 */
+       改验仍然存在的层级：栏目标题 > 右侧说明。
+       .soon 相关取样保留，但**允许为空** —— gear-search 上线后页面上已无
+       未上线的站；以后再加 .soon 时，下面的断言会自动开始生效。
+       ⚠️ 本段在模板字符串内，注释里**不能出现反引号**（会提前终止字符串）。 */
     headPrimary: cs('.container h2', 'color'),
     hintColor: cs('.container a .hint', 'color'),
-    headSecondary: cs('.soon .hint', 'color'),
-    headTertiary: cs('.soon', 'color'),
 
     linkColor: cs('.container a', 'color'),
+    /* .soon 是可选的：没有未上线站时为 null */
+    soonExists: !!document.querySelector('.soon'),
     soonColor: cs('.soon', 'color'),
-    soonIsLink: document.querySelector('.soon') && document.querySelector('.soon').tagName === 'A',
+    soonIsLink: document.querySelector('.soon') ? document.querySelector('.soon').tagName === 'A' : null,
     toolBg: cs('.tool-btn', 'backgroundColor'),
     toolColor: cs('.tool-btn', 'color'),
 
@@ -251,7 +261,14 @@ const SNAPSHOT = `(() => {
     hiddenOutsideHints: hiddenOutsideHints,
 
     hrefs: links,
-    externalLinks: links.filter(h => h && !h.startsWith('https://blog.qxt1me.dpdns.org')),
+    /* 指向站群之外的所有链接（判据 §6 用）。
+       原来写死 blog 域，加 gear-search 后会把它误判成「外链」——
+       改成按「是不是本域」判。
+       ⚠️ 本表达式在模板字符串内，**正则里的反斜杠会被模板字符串吞掉**，
+          所以这里不用正则，改用 startsWith 判域名（本文件踩过一次）。 */
+    externalLinks: links.filter(function (h) {
+      return h && h.indexOf('qxt1me.dpdns.org') === -1;
+    }),
 
     /* 横向溢出 */
     scrollW: document.documentElement.scrollWidth,
@@ -417,16 +434,16 @@ const SNAPSHOT = `(() => {
     ok(scriptBadText.length === 0, "用花体的元素文本全是 ASCII（不会掉字形）",
        JSON.stringify(s.scriptFontEls));
 
-    /* ============ 3. 明度层级：标题 > 说明 > 弱化项 ============
-       验的是「层级成立」而不是「等于某个具体值」——
-       .soon 带 opacity:.62，计算色是叠加前的原色，硬比十六进制会假红。 */
+    /* ============ 3. 明度层级：标题 > 条目说明 ============
+       验的是「层级成立」而不是「等于某个具体值」。
+       ⚠️ 原来还有一条「可点条目的说明比『筹备中』更亮」——
+       gear-search 上线后「器材库」从 .soon 占位改成真链接，
+       **页面上已经没有 .soon 了**，那条判据的语义随之消失（已移除）。
+       以后再加未上线的站时，可以把它连同 .soon 一起恢复。 */
     const lHead = lum(parseRgb(s.headPrimary));
     const lHint = lum(parseRgb(s.hintColor));
-    const lSoon = lum(parseRgb(s.headTertiary));
     ok(lHead > lHint, "栏目标题比右侧说明更亮（主次分明）",
        `${lHead.toFixed(3)} > ${lHint.toFixed(3)}`);
-    ok(lHint > lSoon, "可点条目的说明比「筹备中」更亮（在线 > 未上线）",
-       `${lHint.toFixed(3)} > ${lSoon.toFixed(3)}`);
 
     /* ============ 4. 对比度 ============ */
     const cardBg = parseRgb(s.cardBg);
@@ -434,9 +451,14 @@ const SNAPSHOT = `(() => {
     const cLink = contrast(parseRgb(s.linkColor), cardBg);
     ok(cBody >= 4.5, "正文/卡片对比度 ≥ 4.5 (WCAG AA)", cBody.toFixed(2));
     ok(cLink >= 4.5, "链接/卡片对比度 ≥ 4.5", cLink.toFixed(2));
-    /* 弱化项（「筹备中」）不要求 AA，但不能糊到读不出 */
-    const cSoon = contrast(parseRgb(s.headTertiary), cardBg);
-    ok(cSoon >= 3.0, "「筹备中」标签仍可读（≥ 3.0）", cSoon.toFixed(2));
+    /* 弱化项（「筹备中」）不要求 AA，但不能糊到读不出。
+       仅当页面上确实有未上线的站时才验 —— 现在没有了，跳过而不是假红。 */
+    if (s.soonExists) {
+      const cSoon = contrast(parseRgb(s.soonColor), cardBg);
+      ok(cSoon >= 3.0, "「筹备中」标签仍可读（≥ 3.0）", cSoon.toFixed(2));
+    } else {
+      ok(true, "页面上没有未上线的站（.soon 不存在，跳过弱化项对比度）");
+    }
 
     /* ============ 5. 图标与几何 ============ */
     /* 可见图标：站点栏标题 + 2 个条目 + 搜索 + 日期 = 5。
@@ -453,9 +475,19 @@ const SNAPSHOT = `(() => {
        `宽 ${s.cardRect && s.cardRect.w}px`);
 
     /* ============ 6. 内容守卫：不臆造深链、不重复列同一站 ============ */
-    ok(s.externalLinks.length === 0, "所有子站链接都指向 blog 域（没有臆造的深链/外站）",
-       JSON.stringify(s.externalLinks));
-    ok(s.soonIsLink === false, "「器材库（筹备中）」是不可点的，不是死链");
+    /* ★ 断言从「全部指向 blog 域」放宽为「全部指向本站群自己的域」——
+       原来只有 blog 一个子站，现在加了 gear-search，旧断言会假红。
+       真正要守的是：**不臆造指向站外的深链**。 */
+    const OWN_DOMAINS = /^https:\/\/([a-z0-9-]+\.)?qxt1me\.dpdns\.org(\/|$)/;
+    const strays = s.hrefs.filter((h) => h && !OWN_DOMAINS.test(h));
+    ok(strays.length === 0, "所有子站链接都指向本站群自己的域名（无臆造外链）",
+       JSON.stringify(strays));
+    /* .soon 只在有未上线站时存在 */
+    if (s.soonExists) {
+      ok(s.soonIsLink === false, "未上线的站是不可点的，不是死链");
+    } else {
+      ok(true, "没有未上线的站（.soon 不存在，跳过死链检查）");
+    }
     /* ★ 守卫「一个站只出现一次」：universe 是站群入口，
        同一个 URL 不该在页面上出现两次 —— 曾经有 影集/延时/闲聊/每日颜色/
        关于我/音乐/联系 七条全指向 blog 首页。加第二个站时这条依然成立。 */

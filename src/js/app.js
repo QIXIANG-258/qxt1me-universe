@@ -42,14 +42,18 @@
      2. 搜索 / 直达
      --------------------------------------------------------- */
   var BLOG = "https://blog.qxt1me.dpdns.org/";
+  var GEAR = "https://gear-search.qxt1me.dpdns.org/";
 
   /* 站点直达。前缀对应「站点」栏里的站名，不是站内某页 ——
      universe 只负责把前缀解析到「哪个站」。
      ⚠️ 这里别放 ph:/gear: 这类站内视图前缀：blog 的视图是 JS 切 tab、
-        没有 URL 路由，指不过去（详见 README 的「待办」）。 */
+        没有 URL 路由，指不过去（详见 README 的「待办」）。
+        gear 站自己**有** hash 路由（#k=lens&b=Canon），将来要深链可以指过去。 */
   var SITES = {
-    "ph:": BLOG,      /* 摄影小站 Photo Journal */
-    "blog:": BLOG
+    "ph:": BLOG,        /* 摄影小站 Photo Journal */
+    "blog:": BLOG,
+    "gear:": GEAR,      /* 器材库 Gear Search —— 注意域名是 gear-search. 不是 gear. */
+    "gs:": GEAR
   };
 
   /* 搜索引擎前缀 */

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-从 Photo_proj 的 style.css 里抽出全部 @font-face 声明，写成 universe 的 fonts.css。
+从 01-blog 的 style.css 里抽出全部 @font-face 声明，写成 02-universe 的 fonts.css。
 
 为什么不手抄：blog 的衬线按 unicode-range 切成了 core/rest 两片，声明区有 170 多行
 字符区间。手抄一个码位写错，浏览器会静默丢弃整条声明（blog 的 CSS 注释里记过这个坑），
@@ -9,12 +9,20 @@
 用法：
     python _tools/extract_fonts.py
 """
+import os
 import re
 import sys
 from pathlib import Path
 
-SRC = Path(r"D:\Photo_proj\src\css\style.css")
-DST = Path(r"D:\universe_proj\src\css\fonts.css")
+# ⚠️ 用相对定位而不是写死盘符路径 —— 站群曾整体搬迁过一次
+#    （D:\Photo_proj + D:\universe_proj → D:\QX_t1me_plan\01-blog + 02-universe），
+#    写死路径的脚本全部失效。这里按「与 02-universe 平级的 01-blog」找，
+#    以后再搬也不会坏。可用环境变量覆盖。
+_HERE = Path(__file__).resolve().parent          # …/02-universe/_tools
+SRC = Path(os.environ.get(
+    "BLOG_CSS", _HERE.parent.parent / "01-blog" / "src" / "css" / "style.css"))
+DST = Path(os.environ.get(
+    "UNIVERSE_FONTS_CSS", _HERE.parent / "src" / "css" / "fonts.css"))
 
 # 深色主题块之前的内容就是字体声明区
 STOP_MARKER = "深色主题"
