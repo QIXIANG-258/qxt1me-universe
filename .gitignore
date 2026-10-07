@@ -21,3 +21,7 @@ desktop.ini
 *.bak[0-9]
 *.new
 
+
+# 提交信息临时文件（写过一次被误提交，加规则防复发）
+_commit_msg.txt
+
