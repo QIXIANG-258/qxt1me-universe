@@ -155,6 +155,9 @@ python _tools\extract_fonts.py
 
 ## 部署
 
+> 📘 **完整操作流程见 [`docs/手动上线操作手册.md`](docs/手动上线操作手册.md)** ——
+> 含三步法、改什么的注意事项、三套探针的跑法、以及本站特有的坑。
+
 universe 是**纯静态、无构建步骤** —— `src/` 里就是最终产物。
 `wrangler.jsonc` 的 `assets.directory` 指向 `./src`，Worker 名 `qxt1me-universe`。
 
