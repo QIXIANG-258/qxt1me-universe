@@ -41,3 +41,12 @@
 # 说明：index.html / 404.html 故意**不写规则** ——
 # 它们落 Cloudflare 默认的 `public, max-age=0, must-revalidate`，
 # 即「每次回源校验」，这正是 HTML 想要的语义（改版立刻生效）。
+
+# 站点图标（2026-10-07）——根目录，原先无规则命中会每次回源。
+# 不能 immutable：图标会随换标而变，且文件名不带内容指纹。
+# 给 7 天：换标后最多一周生效，平时不再反复回源。
+/favicon.ico
+  Cache-Control: public, max-age=604800
+
+/icon-*.png
+  Cache-Control: public, max-age=604800
