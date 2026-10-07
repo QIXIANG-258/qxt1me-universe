@@ -316,8 +316,8 @@ main {
 }
 
 .social-container h2 { color: rgb(var(--primary-rgb)); }
-.dev-container h2    { color: rgb(var(--secondary-rgb)); }
-.general-container h2{ color: rgb(var(--tertiary-rgb)); }
+/* 注：原 .dev-container / .general-container 的标题色随三栏一并移除
+   （2026-10-07 收回单栏，那两个容器已不存在，留着是死代码）。 */
 
 /* 链接：默认与正文同色；悬停铺一块反色 <-- blog 的 --hl / --hl-ink
    （blog 的 ::selection 就是这一对，所以悬停读起来是同一套语言）。
@@ -457,34 +457,20 @@ main {
   min-width: 0;
 }
 
-/* ---------------------------------------------------------
-   「关于本站」栏 —— 一段说明文字。
-   它不是链接，所以不能用 .container a 那套一行式；
-   行高放宽到 1.9 让它读起来像段落而不是标签。
-   --------------------------------------------------------- */
-.about-text {
-  font-size: .9rem;
-  line-height: 1.9;
-  letter-spacing: .02em;
-  color: rgb(var(--fg-alt-rgb));
-  padding: .2em .8em .4em;
-  margin: 0;
-}
+/* 注：原 .about-text（「关于本站」栏的说明文字）随三栏一并移除 ——
+   该栏 2026-10-07 改成了左上角弹窗，文字用的是 .modal-text。 */
 
-/* 联系方式：与「站点」栏同构的两行堆叠。
-   第一行  图标 + 值（QQ 号 / 用户名 / 「下载图片地址」）
-   第二行  右侧说明（如「点击复制」）
-   ★ 邮箱那条是 25 个字符，在 280px 栏里放不下 —— 不截断、允许换行，
-     否则访客看到的是 'suoqijiesuoxiang@g...'，等于没给。 */
+/* 联系方式：图标 + 文本，**一行**（2026-10-07 第二轮）。
+   作者要求去掉「点击复制」这类说明，所以不再需要两行堆叠 ——
+   整条改成 flex 不换行，图标与文字垂直居中。 */
 .contact-btn,
 .contact-a {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: .1em .7em;
-  width: 100%;
-  padding: .72em .8em;
-  margin: .1em 0;
+  gap: .6em;
+  padding: .5em .7em;
+  margin: 0;
   color: rgb(var(--fg-rgb));
   font-family: inherit;
   font-size: .95rem;
@@ -506,10 +492,8 @@ main {
   overflow-wrap: anywhere;
 }
 
-/* 邮箱那条 25 个字符，在 280px 栏里按 .95rem 放不下、会断成
-   "...@gmail.c" / "om" 两行 —— 单独把长值降一档字号，
-   换来「一行显示完整地址」（访客看得全比字号统一更重要）。 */
-.contact-a .c-val.long { font-size: .82rem; letter-spacing: .01em; }
+/* 注：原 `.contact-a .c-val.long`（邮箱降一档字号以免截断）随两行布局一并移除 ——
+   现在页脚是整行铺开，25 字符的邮箱放得下。 */
 
 /* 右侧说明（「点击复制」之类）：换到第二行，与值左对齐 */
 .contact-btn .hint,
@@ -520,6 +504,45 @@ main {
   font-size: .72rem;
   letter-spacing: .1em;
   color: rgb(var(--fg-alt-rgb));
+}
+
+/* ---------------------------------------------------------
+   天气（「站点」卡片内，2026-10-07）
+   数据来自 Open-Meteo（免费、无需 key）；定位优先、失败落成都。
+   ★ 未取到数据时整个块 hidden，不占位、不显示 «--»
+     （宁可没有，也不要一个「--°」的空壳）。
+   --------------------------------------------------------- */
+.weather {
+  display: flex;
+  align-items: center;
+  gap: .55em;
+  margin-top: .9em;
+  padding: .7em .8em 0;
+  border-top: 1px solid rgba(var(--line-rgb), .07);
+  font-size: .88rem;
+  letter-spacing: .03em;
+  color: rgb(var(--fg-alt-rgb));
+}
+
+.weather[hidden] { display: none; }
+
+.weather-ico {
+  width: 1.25em;
+  height: 1.25em;
+  color: rgb(var(--fg-rgb));
+}
+
+.weather-temp {
+  font-family: var(--f-serif-d);
+  font-size: 1.05rem;
+  color: rgb(var(--fg-rgb));
+}
+
+.weather-city {
+  margin-left: auto;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  color: rgb(var(--fg-weak-rgb));
 }
 
 /* 悬停：与站点栏一致的反色块（复用 --hl / --hl-ink 那一对） */
@@ -553,8 +576,9 @@ main {
   outline-offset: 2px;
 }
 
-/* 页脚：落款一行 + 联系方式一行（2026-10-07 联系方式从卡片挪到这里）。
-   原来是一行 flex 两端对齐，现在改成上下两块。 */
+/* 页脚：落款 + 联系方式**融为一体**（2026-10-07 第二轮）。
+   作者要求：页脚内部不要分割线、联系方式不要「点击复制」这类说明文字。
+   所以 .foot-contact 去掉了 border-top 与 margin-top，靠 gap 与对齐自然分层。 */
 .foot {
   max-width: var(--max);
   margin: 5em auto 0;
@@ -572,14 +596,14 @@ main {
   justify-content: space-between;
 }
 
-/* 联系方式：两项排成一行；窄屏自动换行 */
+/* 联系方式：与落款同一平面，无上边框、无额外内距 */
 .foot-contact {
   display: flex;
   flex-wrap: wrap;
-  gap: .2em 2.4em;
-  margin-top: 1.6em;
-  padding-top: 1.4em;
-  border-top: 1px solid rgba(var(--line-rgb), .05);
+  gap: .1em 2.6em;
+  margin-top: .9em;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .foot-name {
@@ -626,21 +650,22 @@ html[lang="en"] .foot-name {
 .tools-right { right: 18px; }
 
 /* 按钮：磁贴感 —— 悬停抬起、按下沉下去，同时变色。
-   ⚠️ 位移只用 transform（不碰 margin/top），避免触发回流；
-      transition 已由全局规则限定为颜色，这里单独补 transform。 */
+   ★ 2026-10-07 第二轮：右上角加了 Github，作者要求「三个图标加大一点」，
+     所以整体放大约 20%（字号 11.5→13px、内距 7/12→9/14px、图标 1.25→1.45em）。 */
 .tool-btn {
   display: inline-flex;
   align-items: center;
   gap: .45em;
   font-family: var(--f-cn);
-  font-size: 11.5px;
+  font-size: 13px;
   letter-spacing: .08em;
   color: rgb(var(--fg-rgb));
   background: rgb(var(--bg-2-rgb));
   border: 1px solid rgba(var(--line-rgb), .18);
   border-radius: var(--r);
-  padding: 7px 12px;
+  padding: 9px 14px;
   cursor: pointer;
+  text-decoration: none;         /* Github 是 <a> */
   /* 磁贴阴影：小、硬、贴地 */
   box-shadow: 0 2px 0 rgba(0, 0, 0, .45);
   transition: transform .12s var(--ease), background-color .18s var(--ease),
@@ -650,8 +675,8 @@ html[lang="en"] .foot-name {
 
 /* 按钮里的图标比正文图标大一档（作者：图标可以大一点） */
 .tool-btn .ico {
-  width: 1.25em;
-  height: 1.25em;
+  width: 1.45em;
+  height: 1.45em;
 }
 
 /* 悬停：抬起 2px、阴影加深、描边变亮 */

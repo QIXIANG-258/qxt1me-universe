@@ -113,6 +113,12 @@
     if (langBtn) langBtn.textContent = lang === "en" ? "中" : "EN";
 
     updateClock();
+
+    /* 广播语言切换：data-zh/data-en 覆盖不到的**JS 生成文本**
+       （目前是天气的城市名与天气词）需要自己重渲染。 */
+    try {
+      document.dispatchEvent(new CustomEvent("uv:lang", { detail: { lang: lang } }));
+    } catch (e) {}
   }
 
   var langBtn = $("#langBtn");
@@ -190,16 +196,25 @@
         var text = btn.getAttribute("data-copy") || "";
         if (!text) return;
 
-        var label = btn.querySelector(".hint");
-        var orig = label ? label.textContent : "";
+        /* 反馈方式：临时把**号码本身**换成「已复制」，1.4 秒后还原。
+           ⚠️ 原实现依赖一个 .hint 元素，但作者要求页脚不放「点击复制」
+              这类说明文字，那个元素已删除 —— 于是点击后毫无反馈。
+              改成就地替换 .c-val，既不占额外空间，也不违背「只要图标 + 文本」。 */
+        var val = btn.querySelector(".c-val");
+        var orig = val ? val.textContent : "";
+        var busy = false;
 
         function done(okFlag) {
-          if (!label) return;
+          if (!val || busy) return;
+          busy = true;
           var isEn = document.documentElement.lang === "en";
-          label.textContent = okFlag
+          val.textContent = okFlag
             ? (isEn ? "copied" : "已复制")
             : (isEn ? "copy failed" : "复制失败");
-          setTimeout(function () { label.textContent = orig; }, 1400);
+          setTimeout(function () {
+            val.textContent = orig;
+            busy = false;
+          }, 1400);
         }
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -224,6 +239,130 @@
         }
       });
     })(copyBtns[bi]);
+  }
+
+  /* ---------------------------------------------------------
+     7. 天气（Open-Meteo，免费且无需 key）
+        取数链：访客定位 → 失败落成都 → 再失败则整块隐藏。
+
+        ⚠️ 三个必须处理的现实约束：
+          1. navigator.geolocation **只在安全上下文可用**（HTTPS 或 localhost）。
+             本地用 127.0.0.1 起服务时它可能是 undefined —— 所以先判存在性。
+          2. 访客会拒绝授权，也可能设备定位超时（室内常见）。
+             所以设 8 秒超时，超时即走兜底，不让界面一直空着。
+          3. Open-Meteo 失败（离线 / 被墙 / 限流）不能让页面报错 ——
+             整块保持 hidden，宁可没有天气，也不要一个 «--°» 的空壳。
+
+        天气码 → 图标：Open-Meteo 用 WMO 码，这里只归成 5 类画线性图标
+        （晴 / 多云 / 阴 / 雨 / 雪），够用且与站内手写图标的观感一致。
+     --------------------------------------------------------- */
+  var weatherBox = $("#weather");
+
+  if (weatherBox) {
+    var FALLBACK = { lat: 30.5728, lon: 104.0668, city: "成都", cityEn: "Chengdu" };  /* 兜底城市 */
+
+    /* 记住最近一次取到的天气，供语言切换时重渲染城市名 */
+    var lastWeather = null;
+
+    /* WMO 天气码 → [图标形状, 中文, English] */
+    function wmoInfo(code) {
+      if (code === 0) return ["sun", "晴", "Clear"];
+      if (code <= 3) return ["cloud", "多云", "Cloudy"];
+      if (code === 45 || code === 48) return ["fog", "雾", "Fog"];
+      if (code >= 51 && code <= 67) return ["rain", "雨", "Rain"];
+      if (code >= 71 && code <= 77) return ["snow", "雪", "Snow"];
+      if (code >= 80 && code <= 82) return ["rain", "阵雨", "Showers"];
+      if (code >= 85 && code <= 86) return ["snow", "阵雪", "Snow showers"];
+      if (code >= 95) return ["storm", "雷雨", "Storm"];
+      return ["cloud", "多云", "Cloudy"];
+    }
+
+    /* 线性图标（24×24，与站内其它图标同规格同笔画） */
+    var WICONS = {
+      sun:   '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>',
+      cloud: '<path d="M7 17.5h9.5a3.6 3.6 0 0 0 .3-7.2A5.2 5.2 0 0 0 7 9.4a4 4 0 0 0 0 8.1z"/>',
+      fog:   '<path d="M4 9.5h13M6 13h14M4 16.5h13"/>',
+      rain:  '<path d="M7 15.5h9.5a3.6 3.6 0 0 0 .3-7.2A5.2 5.2 0 0 0 7 7.4a4 4 0 0 0 0 8.1z"/><path d="M9 18.5l-.8 2.2M13 18.5l-.8 2.2M17 18.5l-.8 2.2"/>',
+      snow:  '<path d="M7 15.5h9.5a3.6 3.6 0 0 0 .3-7.2A5.2 5.2 0 0 0 7 7.4a4 4 0 0 0 0 8.1z"/><path d="M9 19h.01M12.5 20.5h.01M16 19h.01"/>',
+      storm: '<path d="M7 15.5h9.5a3.6 3.6 0 0 0 .3-7.2A5.2 5.2 0 0 0 7 7.4a4 4 0 0 0 0 8.1z"/><path d="M13 17.5l-2 4h3l-2 4"/>'
+    };
+
+    function renderWeather(temp, code, city, cityEn) {
+      var info = wmoInfo(code);
+      var shape = info[0];
+      var isEn = document.documentElement.lang === "en";
+      var label = isEn ? info[2] : info[1];
+      var cityName = isEn ? (cityEn || city) : city;
+
+      /* 记下来，切语言时能原样重渲染（否则城市名会一直停在旧语言） */
+      lastWeather = { temp: temp, code: code, city: city, cityEn: cityEn };
+
+      var ico = $("#weatherIco");
+      var tmp = $("#weatherTemp");
+      var cty = $("#weatherCity");
+
+      if (ico) ico.innerHTML = '<svg viewBox="0 0 24 24">' + (WICONS[shape] || WICONS.cloud) + "</svg>";
+      if (tmp) tmp.textContent = Math.round(temp) + "°";
+      if (cty) cty.textContent = cityName + " · " + label;
+
+      weatherBox.hidden = false;
+    }
+
+    /* 语言切换后重渲染天气（applyLang 只管 data-zh/data-en，管不到 JS 生成的文本） */
+    document.addEventListener("uv:lang", function () {
+      if (lastWeather) {
+        renderWeather(lastWeather.temp, lastWeather.code,
+                      lastWeather.city, lastWeather.cityEn);
+      }
+    });
+
+    function fetchWeather(lat, lon, city, cityEn) {
+      /* current_weather=true 是 Open-Meteo 的当前天气开关；
+         timezone=auto 让返回的 time 是当地时间（这里不展示，但便于以后加）。 */
+      var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat +
+                "&longitude=" + lon + "&current_weather=true&timezone=auto";
+      fetch(url)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
+        .then(function (d) {
+          var cw = d && d.current_weather;
+          if (!cw || typeof cw.temperature !== "number") throw new Error("no data");
+          renderWeather(cw.temperature, cw.weathercode, city, cityEn);
+        })
+        .catch(function () {
+          /* 取不到就保持隐藏 —— 不显示空壳 */
+          weatherBox.hidden = true;
+        });
+    }
+
+    if (navigator.geolocation && navigator.geolocation.getCurrentPosition) {
+      /* 8 秒超时：室内 / 拒绝授权时不让界面一直空等 */
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        fetchWeather(FALLBACK.lat, FALLBACK.lon, FALLBACK.city, FALLBACK.cityEn);
+      }, 8000);
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          /* 定位成功，但城市名取不到 —— 只显示坐标太丑，故仍用「当前位置」 */
+          fetchWeather(pos.coords.latitude, pos.coords.longitude, "当前位置", "Current location");
+        },
+        function () {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          fetchWeather(FALLBACK.lat, FALLBACK.lon, FALLBACK.city, FALLBACK.cityEn);
+        },
+        { timeout: 7000, maximumAge: 600000 }
+      );
+    } else {
+      /* 非安全上下文（如 http://127.0.0.1）没有 geolocation —— 直接兜底 */
+      fetchWeather(FALLBACK.lat, FALLBACK.lon, FALLBACK.city, FALLBACK.cityEn);
+    }
   }
 
   /* 首帧内联脚本已经按 localStorage 改过 <html lang>，这里把文案补齐 */

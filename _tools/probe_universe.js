@@ -555,10 +555,25 @@ const SNAPSHOT = `(() => {
          否则这段判据会退化成「永远通过」。 */
     const selfOrigin = new URL(URL_).origin;
     const CF_INJECTED = /^https:\/\/static\.cloudflareinsights\.com$/;
-    const thirdParty = [...origins].filter((o) => o !== selfOrigin && !CF_INJECTED.test(o));
+    /* ★ 2026-10-07：「站点」卡片加了天气，数据取自 Open-Meteo（免费、无 key）。
+       这是**作者明确批准的例外**（原本铁律是「页面不引外站」），
+       所以判据从「零第三方」收紧为「只允许这一个」——
+       不是放开，而是**列出白名单并逐条命名**：
+       再出现别的外站（哪怕是另一个天气源）依然会红。 */
+    const WEATHER_API = /^https:\/\/api\.open-meteo\.com$/;
+    const thirdParty = [...origins].filter(
+      (o) => o !== selfOrigin && !CF_INJECTED.test(o) && !WEATHER_API.test(o));
     ok(thirdParty.length === 0,
-       "除平台注入外零第三方请求（页面自身不引外站）",
+       "除平台注入与天气 API 外，无其它第三方请求",
        JSON.stringify(thirdParty));
+    /* 正向确认：天气请求**确实发生了**（否则这条白名单会退化成摆设） */
+    const wxCalled = [...origins].some((o) => WEATHER_API.test(o));
+    const wxShown = await ev(`(() => {
+      const b = document.querySelector('#weather');
+      return b ? !b.hidden : false; })()`);
+    ok(!wxShown || wxCalled,
+       "天气已显示时，确实请求了天气 API（白名单不是空的）",
+       `显示=${wxShown} 有请求=${wxCalled}`);
     /* 正向确认：如果出现了 cloudflareinsights，应当只在线上出现 */
     const cfInjected = [...origins].filter((o) => CF_INJECTED.test(o));
     const isLocalProbe = /^http:\/\/127\.0\.0\.1|^http:\/\/localhost/.test(URL_);

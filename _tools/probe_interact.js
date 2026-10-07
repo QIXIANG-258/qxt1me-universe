@@ -90,7 +90,7 @@ const ok = (c, label, extra) =>
     contactCount: document.querySelectorAll('.foot-contact .contact-btn, .foot-contact .contact-a').length,
     qq: !!document.querySelector('.foot-contact [data-copy]'),
     mail: !!document.querySelector('.foot-contact a[href^="mailto:"]'),
-    githubGone: document.body.textContent.indexOf('QIXIANG-258') === -1,
+    githubInBody: document.body.textContent.indexOf('QIXIANG-258') !== -1,
     pexelsGone: document.body.textContent.indexOf('Pexels') === -1
   })`);
   ok(dom.clock, "时钟在");
@@ -101,8 +101,35 @@ const ok = (c, label, extra) =>
   ok(dom.contactCount === 2, "页脚联系方式有 2 项", dom.contactCount);
   ok(dom.qq, "QQ 项在（点击复制）");
   ok(dom.mail, "Gmail 项在（mailto）");
-  ok(dom.githubGone, "Github 已移除");
+  /* Github 图标是 SVG（没有文字），所以正文文本里不该出现用户名 ——
+     它作为图标 + aria-label 存在。 */
+  ok(!dom.githubInBody, "Github 不以文字形式出现在正文（是图标）");
   ok(dom.pexelsGone, "Pexels 已移除");
+
+  /* ---------- A2. 第二轮改动的守卫 ---------- */
+  const v2 = await ev(`(() => {
+    const tr = document.querySelector('.tools-right');
+    const gh = tr ? tr.querySelector('a[href*="github.com"]') : null;
+    const btns = tr ? tr.querySelectorAll('.tool-btn').length : 0;
+    const fc = document.querySelector('.foot-contact');
+    const cs = fc ? getComputedStyle(fc) : null;
+    const hints = document.querySelectorAll('.foot-contact .hint').length;
+    const wx = document.querySelector('#weather');
+    return {
+      ghInToolbar: !!gh,
+      toolbarBtns: btns,
+      footHasCopyText: document.body.textContent.indexOf('点击复制') !== -1,
+      footHints: hints,
+      footContactBorder: cs ? cs.borderTopWidth : null,
+      weatherExists: !!wx
+    }; })()`);
+  ok(v2.ghInToolbar, "Github 图标在右上角工具条里");
+  ok(v2.toolbarBtns >= 3, "工具条有三个控件（Github/EN/主题）", v2.toolbarBtns);
+  ok(!v2.footHasCopyText, "页脚没有「点击复制」文字");
+  ok(v2.footHints === 0, "页脚联系方式没有 hint 说明", v2.footHints);
+  ok(v2.footContactBorder === "0px", "页脚联系方式无上边框（与页脚一体）",
+     v2.footContactBorder);
+  ok(v2.weatherExists, "天气容器存在");
 
   /* ---------- B. 弹窗交互（真实鼠标事件） ---------- */
   const box = await ev(`(() => { const e = document.querySelector('#aboutBtn');
@@ -141,10 +168,44 @@ const ok = (c, label, extra) =>
     expression: "navigator.clipboard.readText()", awaitPromise: true, returnByValue: true,
   }).then((r) => r.result.value).catch(() => null);
   ok(clip === "2088801789", "点 QQ 后剪贴板是号码", JSON.stringify(clip));
-  const hintTxt = await ev(`document.querySelector('.foot-contact [data-copy] .hint').textContent`);
-  ok(/已复制|复制失败/.test(hintTxt), "复制后提示文字变化", hintTxt);
+  /* 反馈是「把号码本身换成『已复制』」—— 因为页脚已不放 .hint 说明文字 */
+  const fbTxt = await ev(`document.querySelector('.foot-contact [data-copy] .c-val').textContent`);
+  ok(/已复制|复制失败/.test(fbTxt), "复制后就地反馈（号码变「已复制」）", fbTxt);
+  /* 1.6 秒后应还原成号码 */
+  await sleep(1700);
+  const restored = await ev(`document.querySelector('.foot-contact [data-copy] .c-val').textContent`);
+  ok(restored === "2088801789", "反馈过后号码还原", restored);
 
-  /* ---------- D. 磁贴效果（hover / active 的 transform 与颜色） ---------- */
+  /* ---------- D. 天气（Open-Meteo；本地走兜底城市） ---------- */
+  /* 等天气出数（fetch 是异步的，且本地无 geolocation 会直接走兜底） */
+  let wx = null;
+  for (let i = 0; i < 40; i++) {
+    wx = await ev(`(() => { const b = document.querySelector('#weather');
+      if (!b || b.hidden) return null;
+      return { temp: (document.querySelector('#weatherTemp')||{}).textContent || '',
+               city: (document.querySelector('#weatherCity')||{}).textContent || '',
+               hasIcon: !!document.querySelector('#weatherIco svg') }; })()`);
+    if (wx && wx.temp) break;
+    await sleep(300);
+  }
+  ok(!!wx, "天气块已显示（取到数据）", wx ? wx.temp : "未显示");
+  if (wx) {
+    ok(/^-?\d+°$/.test(wx.temp), "温度格式对（数字 + 度）", wx.temp);
+    ok(wx.hasIcon, "天气有图标");
+    ok(wx.city.length > 0, "显示了城市与天气词", wx.city);
+  }
+
+  /* 语言切换后城市名应跟着变（成都 → Chengdu） */
+  if (wx && /成都/.test(wx.city)) {
+    await ev(`document.querySelector('#langBtn').click()`);
+    await sleep(400);
+    const wxEn = await ev(`(document.querySelector('#weatherCity')||{}).textContent || ''`);
+    ok(/Chengdu/.test(wxEn), "切英文后城市名变英文", wxEn);
+    await ev(`document.querySelector('#langBtn').click()`);
+    await sleep(300);
+  }
+
+  /* ---------- E. 磁贴效果（hover / active 的 transform 与颜色） ---------- */
   const tb = await ev(`(() => { const e = document.querySelector('#aboutBtn');
     const r = e.getBoundingClientRect();
     return { x: Math.round(r.left + r.width/2), y: Math.round(r.top + r.height/2) }; })()`);
