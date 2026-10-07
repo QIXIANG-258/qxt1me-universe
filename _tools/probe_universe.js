@@ -211,7 +211,16 @@ const SNAPSHOT = `(() => {
     });
   /* 隐藏的图标必须全在 .shortcut-hints 里 —— 否则说明有别的块意外被藏了 */
   const hiddenOutsideHints = hiddenIcons.filter(s => !s.closest('.shortcut-hints')).length;
-  const links = [...document.querySelectorAll('.container a')].map(a => a.getAttribute('href'));
+  /* 子站链接 = 「站点」栏里的链接。
+     ⚠️ 2026-10-07 加了「联系方式」栏后，原来的 .container a 会把
+        mailto / github / pexels 也算进来 —— 那三条是**正当的外链**
+        （联系方式本来就该指向站外），却会被「无臆造外链」判据判成假红。
+        所以这里收窄到 .social-container。 */
+  const links = [...document.querySelectorAll('.social-container a')].map(a => a.getAttribute('href'));
+  /* 联系方式栏的链接单独取样（判据里确认它们存在、且确实是外链） */
+  const contactLinks = [...document.querySelectorAll('.contact-a')].map(a => a.getAttribute('href'));
+  /* 三栏容器数（判据里验布局形态） */
+  const containerCount = document.querySelectorAll('main > .container').length;
   return {
     htmlTheme: document.documentElement.getAttribute('data-theme'),
     htmlLang: document.documentElement.lang,
@@ -261,6 +270,8 @@ const SNAPSHOT = `(() => {
     hiddenOutsideHints: hiddenOutsideHints,
 
     hrefs: links,
+    contactLinks: contactLinks,
+    containerCount: containerCount,
     /* 指向站群之外的所有链接（判据 §6 用）。
        原来写死 blog 域，加 gear-search 后会把它误判成「外链」——
        改成按「是不是本域」判。
@@ -469,9 +480,13 @@ const SNAPSHOT = `(() => {
        `${s.hiddenIcons} 个隐藏 / ${s.hiddenOutsideHints} 个在别处`);
     ok(s.cardRect && s.cardRect.y > 100 && s.cardRect.y < 700,
        "站点栏落在首屏内", JSON.stringify(s.cardRect));
-    /* 单栏铺开：卡片应占满版心（max-width 44em ≈ 704px），
-       而不是缩回原版那种 15em 的窄条 */
-    ok(s.cardRect && s.cardRect.w > 500, "站点栏横向铺开（单栏占满版心）",
+    /* 布局形态：2026-10-07 定稿为**单栏**（只有「站点」）。
+       「关于本站」改成左上角弹窗、「联系方式」挪进页脚，
+       所以这里验「只有 1 栏」+「弹窗与页脚联系方式都在」。 */
+    ok(s.containerCount === 1, "主区是单栏（只剩「站点」）",
+       `${s.containerCount} 栏`);
+    ok(s.cardRect && s.cardRect.w > 300,
+       "站点栏撑开（单栏占版心）",
        `宽 ${s.cardRect && s.cardRect.w}px`);
 
     /* ============ 6. 内容守卫：不臆造深链、不重复列同一站 ============ */
@@ -495,6 +510,41 @@ const SNAPSHOT = `(() => {
     ok(uniqHrefs.length === s.hrefs.length,
        "同一站不在页面上重复出现（一个站只列一次）",
        `${s.hrefs.length} 条链接 / ${uniqHrefs.length} 个不同地址`);
+
+    /* ★ 联系方式（2026-10-07 定稿：**在页脚**，**只留 QQ + Gmail**）。
+       作者看图后明确要求去掉 Github / Pexels，所以这里也反着验一遍 ——
+       防止以后又给加回来。 */
+    ok(s.contactLinks.length === 1,
+       "页脚联系方式只有一条外链（Gmail；QQ 是按钮不算）",
+       JSON.stringify(s.contactLinks));
+    const hasMail = s.contactLinks.some((h) => h && h.startsWith("mailto:"));
+    ok(hasMail, "联系方式里有 mailto 链接（邮箱）");
+    const qqBtn = await ev(`!!document.querySelector('.foot-contact [data-copy]')`);
+    ok(qqBtn, "QQ 是「点击复制」按钮（不是死链）");
+    /* 邮箱必须完整可见 —— 曾经被截断成 'suoqijiesuoxiang@g...' */
+    const mailTxt = await ev(
+      `(() => { const e = document.querySelector('.foot-contact a[href^="mailto:"] .c-val');
+                return e ? e.textContent.trim() : null; })()`);
+    ok(mailTxt && mailTxt.includes("@") && mailTxt.includes(".") && !mailTxt.includes("…"),
+       "邮箱地址完整显示（没有被省略号截断）", mailTxt);
+    /* 反向守卫：Github / Pexels 应当**不在**页面上 */
+    const noExtra = await ev(`(() => {
+      const t = document.body.textContent;
+      return { gh: t.indexOf('QIXIANG-258') === -1, px: t.indexOf('Pexels') === -1 }; })()`);
+    ok(noExtra.gh && noExtra.px, "Github / Pexels 已按作者要求移除",
+       JSON.stringify(noExtra));
+
+    /* ★ 「关于本站」现在是**左上角按钮 + 弹窗**（不再是页面里的栏）。
+       验：按钮在、弹窗在、初始隐藏、文案非空。 */
+    const about = await ev(`(() => {
+      const b = document.querySelector('#aboutBtn');
+      const m = document.querySelector('#aboutModal');
+      const t = m ? m.querySelector('.modal-text') : null;
+      return { btn: !!b, modal: !!m, hidden: m ? m.hidden : null,
+               len: t ? t.textContent.trim().length : 0 }; })()`);
+    ok(about.btn, "左上角有「关于」按钮");
+    ok(about.modal && about.hidden === true, "关于弹窗存在且初始隐藏");
+    ok(about.len >= 30, "弹窗里有实质文案", about.len + " 字");
 
     /* ============ 7. 零第三方请求（原版会拉 cdnjs 的 Font Awesome） ============
        白名单从 PROBE_URL 现取 —— 写死端口会在换端口时把它误判成第三方请求。

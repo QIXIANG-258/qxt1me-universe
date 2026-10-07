@@ -148,20 +148,18 @@ body::after {
   color: rgb(var(--hl-ink-rgb));
 }
 
-/* 版心：原版 main 直接 flex 居中、无最大宽度下限，窄屏会把三栏挤扁。
-   ★ 现在是**单栏**（universe 只有一个真站，栏目按「站点」划分，
-     不再按 blog 的站内目录划分）。所以：
-       - 卡片撑满版心而不是挤在 15em 里
-       - 条目改成「左图标 + 站名 …… 右说明」的一行式，横向留白才有用处
-     以后加第二个站，直接再加一条 <a> 即可；要回到多栏就恢复 flex: 1 1 0。 */
+/* 版心：原版 main 直接 flex 居中、无最大宽度下限，窄屏会把卡片挤扁。
+   ★ 2026-10-07 收回**单栏**（「关于本站」改成左上角弹窗、
+     「联系方式」挪进页脚，所以 main 里只剩「站点」）。
+     窄栏里放不下「站名 + 域名」并排，所以条目是两行堆叠（见 .container a）。 */
 main {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: stretch;
-  gap: 1.2em;
+  gap: 1.4em;
   margin-top: 3em;
-  max-width: 44em;
+  max-width: 30em;
   margin-inline: auto;
   padding-inline: var(--pad);
 }
@@ -324,12 +322,17 @@ main {
 /* 链接：默认与正文同色；悬停铺一块反色 <-- blog 的 --hl / --hl-ink
    （blog 的 ::selection 就是这一对，所以悬停读起来是同一套语言）。
    原版的 ::before 结构原样保留，只是把「低透明度叠色」换成「反色填充」。
-   ★ 对齐从「居中」改成「左图标 + 站名 …… 右说明」的一行式：
-     单栏铺开之后横向有空间，把「这个站是什么」写到右边比居中堆叠有用。 */
+
+   ★ 2026-10-07 改回三栏后，一行式（站名 …… 右域名）在约 280px 的窄栏里放不下：
+     站名会被压成竖排、域名会顶出卡片。改成**两行堆叠**：
+       第一行  图标 + 站名
+       第二行        域名（缩进对齐站名）
+     这正是 blog 卡片在窄栏时的做法。 */
 .container a {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: .7em;
+  gap: .1em .7em;
   width: 100%;
   padding: .72em .8em;
   margin: .1em 0;
@@ -343,22 +346,21 @@ main {
   z-index: 1;
 }
 
-/* 站名占满剩余宽度，把说明推到最右 */
+/* 站名不参与压缩（它是这一行的主体） */
 .container a > span:first-of-type {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
-/* 右侧说明（域名 / 状态）。
-   ★ 用 ink-2 而不是 ink-3：ink-3 是「未上线/弱化」那一档，
-     如果在线站的说明也用 ink-3，它就和不远处的「筹备中」同色，
-     视觉上分不出「这个能点」和「这个还没做」。 */
+/* 域名换到第二行，与站名左对齐（缩进 = 图标宽 + gap） */
 .container a .hint {
-  flex: 0 0 auto;
+  flex: 1 0 100%;
+  margin-left: calc(1.05em + .7em);
   font-family: var(--f-serif);
-  font-size: .76rem;
-  letter-spacing: .12em;
+  font-size: .72rem;
+  letter-spacing: .04em;
   color: rgb(var(--fg-alt-rgb));
+  overflow-wrap: anywhere;
 }
 
 .container a:hover .hint,
@@ -455,19 +457,129 @@ main {
   min-width: 0;
 }
 
-/* 页脚：补一条 blog 风格的落款（原版没有页脚） */
+/* ---------------------------------------------------------
+   「关于本站」栏 —— 一段说明文字。
+   它不是链接，所以不能用 .container a 那套一行式；
+   行高放宽到 1.9 让它读起来像段落而不是标签。
+   --------------------------------------------------------- */
+.about-text {
+  font-size: .9rem;
+  line-height: 1.9;
+  letter-spacing: .02em;
+  color: rgb(var(--fg-alt-rgb));
+  padding: .2em .8em .4em;
+  margin: 0;
+}
+
+/* 联系方式：与「站点」栏同构的两行堆叠。
+   第一行  图标 + 值（QQ 号 / 用户名 / 「下载图片地址」）
+   第二行  右侧说明（如「点击复制」）
+   ★ 邮箱那条是 25 个字符，在 280px 栏里放不下 —— 不截断、允许换行，
+     否则访客看到的是 'suoqijiesuoxiang@g...'，等于没给。 */
+.contact-btn,
+.contact-a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .1em .7em;
+  width: 100%;
+  padding: .72em .8em;
+  margin: .1em 0;
+  color: rgb(var(--fg-rgb));
+  font-family: inherit;
+  font-size: .95rem;
+  letter-spacing: .03em;
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.contact-btn .c-val,
+.contact-a .c-val {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 邮箱那条 25 个字符，在 280px 栏里按 .95rem 放不下、会断成
+   "...@gmail.c" / "om" 两行 —— 单独把长值降一档字号，
+   换来「一行显示完整地址」（访客看得全比字号统一更重要）。 */
+.contact-a .c-val.long { font-size: .82rem; letter-spacing: .01em; }
+
+/* 右侧说明（「点击复制」之类）：换到第二行，与值左对齐 */
+.contact-btn .hint,
+.contact-a .hint {
+  flex: 1 0 100%;
+  margin-left: calc(1.05em + .7em);
+  font-family: var(--f-serif);
+  font-size: .72rem;
+  letter-spacing: .1em;
+  color: rgb(var(--fg-alt-rgb));
+}
+
+/* 悬停：与站点栏一致的反色块（复用 --hl / --hl-ink 那一对） */
+.contact-btn::before,
+.contact-a::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  z-index: -1;
+  border-radius: var(--r-sm);
+  background: rgb(var(--hl-rgb));
+  transition: width .22s var(--ease);
+}
+
+.contact-btn:hover::before,
+.contact-btn:focus-visible::before,
+.contact-a:hover::before,
+.contact-a:focus-visible::before { width: 100%; }
+
+.contact-btn:hover,
+.contact-btn:focus-visible,
+.contact-a:hover,
+.contact-a:focus-visible { color: rgb(var(--hl-ink-rgb)); }
+
+.contact-btn:focus-visible,
+.contact-a:focus-visible {
+  outline: 1px solid rgba(var(--line-rgb), .34);
+  outline-offset: 2px;
+}
+
+/* 页脚：落款一行 + 联系方式一行（2026-10-07 联系方式从卡片挪到这里）。
+   原来是一行 flex 两端对齐，现在改成上下两块。 */
 .foot {
   max-width: var(--max);
   margin: 5em auto 0;
-  padding: 1.6em var(--pad) 3em;
+  padding: 1.6em var(--pad) 3.4em;
   border-top: 1px solid rgba(var(--line-rgb), .07);
+  position: relative;
+  z-index: 2;
+}
+
+.foot-top {
   display: flex;
   flex-wrap: wrap;
   gap: .6em 1.4em;
   align-items: baseline;
   justify-content: space-between;
-  position: relative;
-  z-index: 2;
+}
+
+/* 联系方式：两项排成一行；窄屏自动换行 */
+.foot-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2em 2.4em;
+  margin-top: 1.6em;
+  padding-top: 1.4em;
+  border-top: 1px solid rgba(var(--line-rgb), .05);
 }
 
 .foot-name {
@@ -498,13 +610,69 @@ html[lang="en"] .foot-name {
 }
 
 /* 右上角主题/语言小按钮（与 blog 同位置、同尺寸感） */
+/* 顶部工具条：**左右两个分区**（2026-10-07）
+     左上 .tools-left  → 「关于」按钮（点开弹窗）
+     右上 .tools-right → 语言 + 明暗
+   两侧对称，中间留白给时钟。 */
 .tools {
   position: fixed;
   top: 18px;
-  right: 18px;
   display: flex;
   gap: 8px;
   z-index: 10;
+}
+
+.tools-left { left: 18px; }
+.tools-right { right: 18px; }
+
+/* 按钮：磁贴感 —— 悬停抬起、按下沉下去，同时变色。
+   ⚠️ 位移只用 transform（不碰 margin/top），避免触发回流；
+      transition 已由全局规则限定为颜色，这里单独补 transform。 */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .45em;
+  font-family: var(--f-cn);
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-2-rgb));
+  border: 1px solid rgba(var(--line-rgb), .18);
+  border-radius: var(--r);
+  padding: 7px 12px;
+  cursor: pointer;
+  /* 磁贴阴影：小、硬、贴地 */
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .45);
+  transition: transform .12s var(--ease), background-color .18s var(--ease),
+              color .18s var(--ease), border-color .18s var(--ease),
+              box-shadow .12s var(--ease);
+}
+
+/* 按钮里的图标比正文图标大一档（作者：图标可以大一点） */
+.tool-btn .ico {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+/* 悬停：抬起 2px、阴影加深、描边变亮 */
+.tool-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--line-rgb), .34);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .5);
+}
+
+/* 按下：沉下去 2px、阴影收掉、底色反色（位移 + 变色同时发生） */
+.tool-btn:active {
+  transform: translateY(2px);
+  background: rgb(var(--hl-rgb));
+  color: rgb(var(--hl-ink-rgb));
+  border-color: rgb(var(--hl-rgb));
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.tool-btn:focus-visible {
+  outline: 1px solid rgba(var(--line-rgb), .5);
+  outline-offset: 2px;
 }
 
 /* 右上角工具按钮。
@@ -513,22 +681,6 @@ html[lang="en"] .foot-name {
    两处一起改：① 文字提到 --fg（ink，最强档）；
              ② 底色从 rgba(...,.8) 改为不透明 —— 半透明会与页面底色混合，
                 对比度随滚动位置变化，无法保证。 */
-.tool-btn {
-  font-family: var(--f-cn);
-  font-size: 11.5px;
-  letter-spacing: .08em;
-  color: rgb(var(--fg-rgb));
-  background: rgb(var(--bg-2-rgb));
-  border: 1px solid rgba(var(--line-rgb), .18);
-  border-radius: var(--r);
-  padding: 6px 11px;
-  cursor: pointer;
-}
-
-.tool-btn:hover {
-  border-color: rgba(var(--line-rgb), .34);
-}
-
 /* ---------------------------------------------------------
    404 页（src/404.html）—— 与首页同一套令牌，别让它长得像另一个站。
    --------------------------------------------------------- */
@@ -594,10 +746,108 @@ html[lang="en"] .foot-name {
   }
 
   .clock { margin-top: 4em; }
-  .foot { flex-direction: column; align-items: flex-start; }
+  /* .foot 现在是上下两块（.foot-top / .foot-contact），不再是 flex 容器 */
+  .foot-top { flex-direction: column; align-items: flex-start; gap: .3em; }
+  .foot-contact { gap: .4em 1.6em; }
 }
+
+/* ---------------------------------------------------------
+   关于本站弹窗（左上角按钮打开）
+   遮罩 + 居中卡片；关闭有三条路径：× 按钮 / 遮罩 / Esc。
+   --------------------------------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pad);
+}
+
+.modal[hidden] { display: none; }
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim, rgba(12, 12, 12, .86));
+  /* 遮罩用深色半透明（与 blog 的 --scrim 同源） */
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(30em, 100%);
+  background: rgb(var(--bg-rgb));
+  border: 1px solid rgba(var(--line-rgb), .16);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 2em 1.8em 1.8em;
+}
+
+.modal-title {
+  font-family: var(--f-serif-d);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  margin: 0 0 .9em;
+  padding-bottom: .8em;
+  border-bottom: 1px solid rgba(var(--line-rgb), .09);
+}
+
+.modal-text {
+  font-size: .9rem;
+  line-height: 1.9;
+  letter-spacing: .02em;
+  color: rgb(var(--fg-alt-rgb));
+  margin: 0 0 .8em;
+}
+
+.modal-text:last-child { margin-bottom: 0; }
+
+.modal-x {
+  position: absolute;
+  top: .8em;
+  right: .8em;
+  width: 1.9em;
+  height: 1.9em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--fg-alt-rgb));
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color .18s var(--ease), background-color .18s var(--ease);
+}
+
+.modal-x svg {
+  width: 1.05em;
+  height: 1.05em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.modal-x:hover {
+  color: rgb(var(--hl-ink-rgb));
+  background: rgb(var(--hl-rgb));
+}
+
+/* ---------------------------------------------------------
+   顶部图标放大（作者：图标可以大一点）
+   时钟与搜索框的图标各放大一档 —— 只动尺寸，不动描边宽度，
+   与 blog「细线放大反而更清楚」的处理一致。
+   --------------------------------------------------------- */
+.search-icon { width: 1.3em; height: 1.3em; }
+.clock-date .ico { width: 1.15em; height: 1.15em; }
 
 /* 尊重系统的减少动效偏好 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
+  .tool-btn:hover, .tool-btn:active { transform: none; }
 }

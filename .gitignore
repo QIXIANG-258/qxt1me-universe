@@ -15,3 +15,9 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 改文件时的本地备份（我产生过 .bak/.bak2/.bak3，不该进仓库）
+*.bak
+*.bak[0-9]
+*.new
+

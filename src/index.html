@@ -24,8 +24,16 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <!-- 右上角工具条：明暗 + 中英，与 blog 的控件位置和尺寸感一致 -->
-    <div class="tools">
+    <!-- 顶部两侧控件：左上「关于」，右上语言 + 明暗。
+         两侧对称，中间留白给时钟。 -->
+    <div class="tools tools-left">
+      <button type="button" class="tool-btn" id="aboutBtn" aria-haspopup="dialog"
+              aria-controls="aboutModal" aria-label="关于本站 / About">
+        <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><circle class="dot" cx="12" cy="7.6" r="1.15"/></svg></i>
+        <span data-zh="关于" data-en="About">关于</span>
+      </button>
+    </div>
+    <div class="tools tools-right">
       <button type="button" class="tool-btn" id="langBtn" aria-label="切换语言 / Switch language">EN</button>
       <button type="button" class="tool-btn" id="themeBtn" aria-label="切换明暗主题 / Toggle theme">◐</button>
     </div>
@@ -64,8 +72,25 @@
       </div>
     </div>
 
+    <!-- 关于本站：左上角按钮打开。说明的是 universe 自身，不是子站内容。 -->
+    <div class="modal" id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
+      <div class="modal-scrim" data-modal-close></div>
+      <div class="modal-card" role="document">
+        <button type="button" class="modal-x" data-modal-close aria-label="关闭 / Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <h3 class="modal-title" id="aboutTitle" data-zh="关于本站" data-en="About">关于本站</h3>
+        <p class="modal-text" data-zh="universe 是我的个人站群总入口：把散落在不同子域名的站点收在一处，方便找到，也方便我继续加新的。"
+           data-en="universe is the entry point to my personal sites: it gathers the ones living on separate subdomains into one place, so they're easy to find — and easy for me to keep adding to.">universe 是我的个人站群总入口：把散落在不同子域名的站点收在一处，方便找到，也方便我继续加新的。</p>
+        <p class="modal-text" data-zh="它本身不承载内容 —— 照片、日志、音乐在摄影小站，器材索引在器材库。"
+           data-en="It holds no content itself: photos, journals and music live in the Photo Journal; the gear index lives in Gear Search.">它本身不承载内容 —— 照片、日志、音乐在摄影小站，器材索引在器材库。</p>
+      </div>
+    </div>
+
     <main>
-      <!-- ★ 分栏一：站点（最亮的一档明度，主入口） -->
+      <!-- 单栏：universe 的职责是「指到哪个站」。
+           2026-10-07：「关于本站」改成左上角弹窗、「联系方式」挪进页脚，
+           所以这里只剩站点栏。 -->
       <div class="container social-container">
         <h2>
           <i class="ico" aria-hidden="true">
@@ -88,26 +113,34 @@
           <span class="hint">gear-search.qxt1me.dpdns.org</span>
         </a>
       </div>
-
-      <!-- ★ 这里原本还有两栏，都已整栏移除，理由是同一个：
-           「一个站只出现一次」。
-             · 原「内容」栏：影集 / 延时 / 闲聊 / 每日颜色 —— 四条全落回 blog 首页
-             · 原「关于」栏：关于我 / 音乐 / 联系       —— 三条也全落回 blog 首页
-           universe 的职责是「指到哪个站」；blog 的站内导航
-           （影集 / 延时 / 闲聊 / 关于 / 音乐）由 blog 自己的顶栏负责。
-           加第二个站时，在「站点」栏再加一条 <a> 即可：
-             <a href="https://新站地址/">
-               <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24">…</svg></i>
-               <span data-zh="站名" data-en="Name">站名</span>
-               <span class="hint">域名或说明</span>
-             </a>
-           还没上线的站用 <span class="soon">（不可点、弱一档）而不是死链。 -->
     </main>
 
+    <!-- 页脚：落款 + 联系方式。
+         联系方式用 blog 的图标（同源），**只留 QQ 与 Gmail** ——
+         Github / Pexels 按作者要求去掉（2026-10-07）。 -->
     <footer class="foot">
-      <span class="foot-name">universe</span>
-      <span class="foot-note" data-zh="憩想 · 个人站群总入口" data-en="Qi Xiang · entry to my sites">憩想 · 个人站群总入口</span>
+      <div class="foot-top">
+        <span class="foot-name">universe</span>
+        <span class="foot-note" data-zh="憩想 · 个人站群总入口" data-en="Qi Xiang · entry to my sites">憩想 · 个人站群总入口</span>
+      </div>
+
+      <div class="foot-contact">
+        <!-- QQ：点击复制号码 -->
+        <button type="button" class="contact-btn" data-copy="2088801789" title="QQ · 点击复制">
+          <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M11.7 1L12.79 1.02L13.87 1.21L14.91 1.59L15.92 2.19L16.88 3.09L17.64 4.13L18.09 5.02L18.53 6.28L18.71 7.11L18.87 8.18L18.94 9.42L18.91 10.27L19.85 12.61L20.74 15.17L21.18 17.14L21.25 17.77L21.25 18.56L21.18 18.91L21.08 19.08L20.76 18.95L20.09 18.21L19.14 16.85L19 17.93L18.56 19.13L18.24 19.7L17.83 20.27L17.42 20.74L16.95 21.19L17.98 21.58L18.49 21.87L18.84 22.23L18.9 22.58L18.82 22.7L18.61 22.8L17.47 22.97L14.75 23L12 22.85L10.23 22.97L7.29 23L6.11 22.94L5.39 22.81L5.17 22.71L5.06 22.51L5.1 22.29L5.29 22.02L5.99 21.59L7.08 21.19L6.17 20.2L5.5 19.13L5.09 18.05L4.97 17.42L4.92 16.85L4.01 18.15L3.39 18.85L3.14 19.04L2.98 19.08L2.91 19.03L2.81 18.81L2.75 18.4L2.75 17.74L3 16.15L3.39 14.76L3.82 13.5L5.15 10.21L5.15 8.69L5.31 7.26L5.66 5.84L6.13 4.67L6.58 3.88L7.09 3.18L7.63 2.6L8.36 2.03L9.15 1.59L9.88 1.3L10.8 1.09L11.68 1Z"/></g></svg></i>
+          <span class="c-val">2088801789</span>
+          <span class="hint" data-zh="点击复制" data-en="click to copy">点击复制</span>
+        </button>
+
+        <!-- Gmail -->
+        <a class="contact-a" href="mailto:suoqijiesuoxiang@gmail.com" title="Gmail">
+          <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><g transform="translate(1.0000 1.2965) scale(0.042969)" fill="none" stroke="currentColor" stroke-width="34.909" stroke-linecap="round" stroke-linejoin="round"><path d="M0 117.182C0 74.04 49.25 49.4 83.782 75.291L116.364 99.727L256 204.455L395.636 99.727L428.218 75.291C462.75 49.4 512 74.04 512 117.182L512 413.909C512 433.196 496.378 448.818 477.091 448.818L395.636 448.818L395.636 251L256 355.727L116.364 251L116.364 448.818L34.909 448.818C15.622 448.818 0 433.197 0 413.91Z"/></g></svg></i>
+          <span class="c-val long">suoqijiesuoxiang@gmail.com</span>
+        </a>
+      </div>
     </footer>
+
+
 
     <script src="js/app.js"></script>
   </body>

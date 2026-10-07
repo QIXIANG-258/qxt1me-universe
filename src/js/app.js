@@ -139,6 +139,93 @@
     });
   }
 
+  /* ---------------------------------------------------------
+     5. 关于本站弹窗（左上角按钮打开）
+        三条关闭路径：× 按钮 / 点遮罩 / Esc —— 与 blog 的弹层约定一致。
+        ⚠️ 打开时记住「是谁打开的」，关闭后把焦点还回去，
+           否则键盘用户的焦点会掉到 body 上（可访问性问题）。
+     --------------------------------------------------------- */
+  var aboutBtn = $("#aboutBtn");
+  var aboutModal = $("#aboutModal");
+
+  if (aboutBtn && aboutModal) {
+    var lastFocus = null;
+
+    function openAbout() {
+      lastFocus = document.activeElement;
+      aboutModal.hidden = false;
+      /* 焦点移到关闭按钮，键盘能直接 Esc / Tab */
+      var x = aboutModal.querySelector(".modal-x");
+      if (x) x.focus();
+    }
+
+    function closeAbout() {
+      aboutModal.hidden = true;
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    aboutBtn.addEventListener("click", openAbout);
+
+    /* × 与遮罩共用一个 data-modal-close 钩子 */
+    var closers = aboutModal.querySelectorAll("[data-modal-close]");
+    for (var ci = 0; ci < closers.length; ci++) {
+      closers[ci].addEventListener("click", closeAbout);
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !aboutModal.hidden) closeAbout();
+    });
+  }
+
+  /* ---------------------------------------------------------
+     6. 点击复制（QQ 号）
+        照 blog 的做法：点一下复制到剪贴板，并把按钮文字短暂换成「已复制」。
+        ⚠️ navigator.clipboard 在非 HTTPS / 旧浏览器可能不可用，
+           所以留一条 execCommand 的兜底路径，失败则提示手动复制。
+     --------------------------------------------------------- */
+  var copyBtns = document.querySelectorAll("[data-copy]");
+  for (var bi = 0; bi < copyBtns.length; bi++) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-copy") || "";
+        if (!text) return;
+
+        var label = btn.querySelector(".hint");
+        var orig = label ? label.textContent : "";
+
+        function done(okFlag) {
+          if (!label) return;
+          var isEn = document.documentElement.lang === "en";
+          label.textContent = okFlag
+            ? (isEn ? "copied" : "已复制")
+            : (isEn ? "copy failed" : "复制失败");
+          setTimeout(function () { label.textContent = orig; }, 1400);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { done(true); },
+                                                   function () { done(false); });
+        } else {
+          /* 兜底：临时 textarea + execCommand */
+          try {
+            var ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            var okFlag = document.execCommand("copy");
+            document.body.removeChild(ta);
+            done(okFlag);
+          } catch (e) {
+            done(false);
+          }
+        }
+      });
+    })(copyBtns[bi]);
+  }
+
   /* 首帧内联脚本已经按 localStorage 改过 <html lang>，这里把文案补齐 */
   applyLang(document.documentElement.lang === "en" ? "en" : "zh");
 })();
