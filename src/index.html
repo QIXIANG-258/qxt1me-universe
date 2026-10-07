@@ -26,9 +26,14 @@
          ⚠️ 图标**自带深色圆角底**（站点暖黑 #0f0f0f）+ 暖白线稿 ——
             不能做「透明底 + 深色线」，否则浏览器深色主题的标签栏上会看不见
             （实测：透明底深线在深色标签栏上完全消失）。
-         参数（加粗 +12 / 填充 0.88）由 _cleanup/solve_favicon_16.py 实测定标。 -->
+         参数（加粗 +12 / 填充 0.88）由 _cleanup/make_favicon.py 实测定标；
+         maskable 版另有安全区约束（图形须落在直径 80% 的中心圆内，
+         故 inset 收到 0.56、背景改满幅方块）。 -->
     <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" href="icon-180.png" />
+    <!-- manifest：让 icon-192/512 真正被用上（手机「添加到主屏幕」走它）。
+         没有它那两个 PNG 就是部署出去没人要的死文件。 -->
+    <link rel="manifest" href="manifest.webmanifest" />
   </head>
   <body>
     <!-- 背景场景（2026-10-07）：随现实时间与天气变化。

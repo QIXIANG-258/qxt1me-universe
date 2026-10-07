@@ -65,7 +65,9 @@ const ok = (c, label, extra) =>
     }
     if (m.method === "Network.responseReceived") {
       const r = m.params.response;
-      if (/favicon|icon-\d+\.png/.test(r.url)) {
+      /* ⚠️ 别只匹配图标 —— manifest 也要抓。第一版只写了 favicon|icon-\d+\.png，
+         后来加了 manifest.webmanifest 就漏掉了「浏览器有没有真的请求它」。 */
+      if (/favicon|icon-\d+(-maskable)?\.png|manifest\.webmanifest/.test(r.url)) {
         reqs[r.url] = { status: r.status, mime: r.mimeType,
                         fromCache: !!r.fromDiskCache };
       }
@@ -108,9 +110,11 @@ const ok = (c, label, extra) =>
     ok(reqs[fav].status === 200, "favicon.ico 返回 200", reqs[fav].status);
   }
 
-  /* ③ 直接 HEAD 各图标，确认可访问 + 拿缓存头 */
-  console.log("\n  ── 各图标响应 ──");
-  for (const f of ["favicon.ico", "icon-180.png", "icon-512.png"]) {
+  /* ③ 直接 GET 各图标 + manifest，确认可访问 + 拿缓存头 */
+  console.log("\n  ── 各资源响应 ──");
+  for (const f of ["favicon.ico", "icon-180.png", "icon-192.png", "icon-512.png",
+                   "icon-192-maskable.png", "icon-512-maskable.png",
+                   "manifest.webmanifest"]) {
     const r = await ev(`(async () => {
       const res = await fetch('${f}', { method: 'GET' });
       return { status: res.status,
@@ -121,7 +125,7 @@ const ok = (c, label, extra) =>
     //    第一版就踩了这个，输出成了 "%-16s favicon.ico"。
     //    另外 padding 要够宽：线上 favicon.ico 的 Content-Type 是
     //    "image/vnd.microsoft.icon"（24 字符），用 18 会让它和缓存头粘在一起。
-    console.log("    " + f.padEnd(16) + String(r.status).padEnd(6) +
+    console.log("    " + f.padEnd(24) + String(r.status).padEnd(6) +
                 (r.ct || "-").padEnd(26) + (r.cc || "(无 cache-control)").padEnd(30) +
                 " " + r.len + " B");
     ok(r.status === 200, f + " 可访问", r.status);
@@ -129,6 +133,26 @@ const ok = (c, label, extra) =>
     if (f === "favicon.ico") {
       ok(/image\//.test(r.ct), "favicon.ico 的 Content-Type 是图片", r.ct);
     }
+    if (f === "manifest.webmanifest") {
+      /* manifest 的 MIME 必须正确 —— 缺失或错的 MIME 会让部分浏览器
+         **直接忽略整个 manifest**（图标与独立窗口都不生效）。 */
+      ok(/application\/manifest\+json/.test(r.ct),
+         "manifest 的 Content-Type 正确", r.ct);
+    }
+  }
+
+  /* ③b manifest 内容自检：里面声明的每个图标都要真实存在 */
+  const man = await ev(`fetch('manifest.webmanifest').then(r => r.json())`);
+  ok(!!man && Array.isArray(man.icons) && man.icons.length >= 2,
+     "manifest 里声明了图标", man && man.icons ? man.icons.length + " 个" : "无");
+  ok(man && man.display === "standalone",
+     "manifest 的 display 是 standalone（添加到主屏幕后像 App）", man && man.display);
+  const maskable = (man.icons || []).filter((i) => i.purpose === "maskable");
+  ok(maskable.length >= 1, "manifest 含 maskable 图标", maskable.length + " 个");
+  /* 逐个访问 manifest 里声明的图标，确认不是死链 */
+  for (const ic of (man.icons || [])) {
+    const st = await ev(`fetch('${ic.src}').then(r => r.status).catch(() => 0)`);
+    ok(st === 200, "manifest 声明的图标可访问：" + ic.src, st);
   }
 
   /* ④ is-ready 之后场景仍正常（图标不该影响页面） */
@@ -138,6 +162,10 @@ const ok = (c, label, extra) =>
              bodyBg: getComputedStyle(document.body).backgroundColor }; })()`);
   ok(stillOk.ready, "加了图标后场景仍正常就绪");
   ok(/rgb\(15,\s*15,\s*15\)/.test(stillOk.bodyBg), "body 背景仍未被改动", stillOk.bodyBg);
+
+  /* ⑤ 浏览器是否真的请求了 manifest（声明了 ≠ 被用） */
+  const manReq = Object.keys(reqs).find((u) => /manifest\.webmanifest/.test(u));
+  ok(!!manReq, "浏览器真的请求了 manifest", manReq || "未请求（可能被浏览器缓存或未触发）");
 
   try { child.kill(); } catch (e) {}
   const failed = results.filter((r) => !r.pass);

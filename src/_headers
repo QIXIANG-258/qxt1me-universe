@@ -50,3 +50,12 @@
 
 /icon-*.png
   Cache-Control: public, max-age=604800
+
+# manifest（2026-10-07）—— 同样在根目录、同样无指纹。
+# 它比图标更该短一些：manifest 里改了 start_url / 主题色等内容，
+# 若被长时间缓存，用户装了「添加到主屏幕」后行为不对且难排查。
+# 给 1 小时。
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600
+  # manifest 的正确 MIME —— 缺失时部分浏览器直接忽略整个 manifest
+  Content-Type: application/manifest+json
