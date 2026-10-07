@@ -24,6 +24,17 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
+    <!-- 背景场景（2026-10-07）：随现实时间与天气变化。
+         ⚠️ 这一层的 SVG **不带 .ico 类** —— 探针把 `.ico svg` 当界面图标统计，
+            带了会被算进 iconCount 并可能触发「塌成 0 尺寸」的假红。
+         z-index 0：在 body 背景之上、main/.tools（>=1）之下。 -->
+    <div class="scene" id="scene" aria-hidden="true" data-daypart="night" hidden>
+      <div class="scene-sky"></div>
+      <div class="scene-stars"></div>
+      <div class="scene-glow"></div>
+      <div class="scene-clouds"></div>
+    </div>
+
     <!-- 顶部两侧控件：左上「关于」，右上语言 + 明暗。
          两侧对称，中间留白给时钟。 -->
     <div class="tools tools-left">

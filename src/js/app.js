@@ -287,7 +287,7 @@
       storm: '<path d="M7 15.5h9.5a3.6 3.6 0 0 0 .3-7.2A5.2 5.2 0 0 0 7 7.4a4 4 0 0 0 0 8.1z"/><path d="M13 17.5l-2 4h3l-2 4"/>'
     };
 
-    function renderWeather(temp, code, city, cityEn) {
+    function renderWeather(temp, code, city, cityEn, unknown) {
       var info = wmoInfo(code);
       var shape = info[0];
       var isEn = document.documentElement.lang === "en";
@@ -295,17 +295,21 @@
       var cityName = isEn ? (cityEn || city) : city;
 
       /* 记下来，切语言时能原样重渲染（否则城市名会一直停在旧语言） */
-      lastWeather = { temp: temp, code: code, city: city, cityEn: cityEn };
+      lastWeather = { temp: temp, code: code, city: city, cityEn: cityEn, unknown: !!unknown };
 
       var ico = $("#weatherIco");
       var tmp = $("#weatherTemp");
       var cty = $("#weatherCity");
 
       if (ico) ico.innerHTML = '<svg viewBox="0 0 24 24">' + (WICONS[shape] || WICONS.cloud) + "</svg>";
-      if (tmp) tmp.textContent = Math.round(temp) + "°";
+      /* 温度未知时留空，**不编造一个数字** —— 但天气词照作者要求按晴天走。
+         （编造温度比留空更糟：那是在给用户一个假数据。） */
+      if (tmp) tmp.textContent = unknown ? "" : Math.round(temp) + "°";
       if (cty) cty.textContent = cityName + " · " + label;
 
       weatherBox.hidden = false;
+      /* 顺带把场景的天气也定下来（识别不到时 weatherKind 会返回 clear） */
+      setSceneWeather(weatherKind(unknown ? -1 : code));
     }
 
     /* 语言切换后重渲染天气（applyLang 只管 data-zh/data-en，管不到 JS 生成的文本） */
@@ -329,8 +333,12 @@
           renderWeather(cw.temperature, cw.weathercode, city, cityEn);
         })
         .catch(function () {
-          /* 取不到就保持隐藏 —— 不显示空壳 */
-          weatherBox.hidden = true;
+          /* ⚠️ 2026-10-07 改：取不到天气时**不再隐藏整块** ——
+             按作者要求「识别不到天气默认按晴天」。
+             做法：用 code=0（晴）渲染天气图标与文字，温度留空
+             （不编造数字），并打上 unknown 标记供语言切换时保持。
+             场景那边也同步落到 clear。 */
+          renderWeather(null, 0, city, cityEn, true);
         });
     }
 
@@ -363,6 +371,118 @@
       /* 非安全上下文（如 http://127.0.0.1）没有 geolocation —— 直接兜底 */
       fetchWeather(FALLBACK.lat, FALLBACK.lon, FALLBACK.city, FALLBACK.cityEn);
     }
+  }
+
+  /* ---------------------------------------------------------
+     8. 背景场景（随现实时间与定位天气变化）
+
+        时段划分（**本地时间**，7 档）：
+          0–4  night      深夜（星空）
+          4–6  dawn       破晓（地平线泛冷紫、暖光将出）
+          6–9  morning    清晨（金光斜射）
+          9–16 noon       正午（高亮蓝天）
+          16–18 afternoon 午后（转暖）
+          18–20 dusk      黄昏（橙红压地平线）
+          20–22 evening   蓝调时刻
+          22–24 night     深夜
+
+        天气（6 类，从 WMO code 归并）：
+          clear / partly / overcast / fog / rain / snow
+          ⚠️ 识别不到天气时按 **clear（晴）** 处理（作者要求）。
+
+        实现约定：
+          · 用 data-daypart / data-weather 两个属性驱动 CSS 色板，
+            JS 只写属性、不写颜色 —— 改配色不必动 JS。
+          · 每 60 秒重算一次（跨时段的边界最坏晚 1 分钟，可接受）。
+          · 页面从后台切回前台时立刻重算（省电：后台不做无谓计算，
+            但回来时不能还显示两小时前的天色）。
+     --------------------------------------------------------- */
+  var sceneEl = $("#scene");
+
+  function daypartOf(h, m) {
+    var t = h + m / 60;
+    if (t < 4) return "night";
+    if (t < 6) return "dawn";
+    if (t < 9) return "morning";
+    if (t < 16) return "noon";
+    if (t < 18) return "afternoon";
+    if (t < 20) return "dusk";
+    if (t < 22) return "evening";
+    return "night";
+  }
+
+  /* WMO code → 场景天气类别。code < 0 表示「已知识别不到」→ 按晴天。 */
+  function weatherKind(code) {
+    if (code === null || code === undefined || code < 0) return "clear";  /* 识别不到 → 晴 */
+    if (code === 0) return "clear";
+    if (code <= 2) return "partly";          /* 1 少云 / 2 多云 */
+    if (code === 3) return "overcast";       /* 3 阴 */
+    if (code === 45 || code === 48) return "fog";
+    if (code >= 51 && code <= 67) return "rain";
+    if (code >= 71 && code <= 77) return "snow";
+    if (code >= 80 && code <= 82) return "rain";   /* 阵雨 */
+    if (code >= 85 && code <= 86) return "snow";   /* 阵雪 */
+    if (code >= 95) return "rain";                 /* 雷雨 → 按雨 */
+    return "clear";
+  }
+
+  /* 日辉位置：把一天摊成一条弧，太阳从东（左）升到西（右）。
+     只在 5:00–19:00 之间有意义；夜里由 CSS 的 night 档给月晕位置。
+
+     ⚠️ 纵向范围**限制在 4%–66%**，不能落到地平线（62%）以下。
+        实测（图层隔离，_tools/probe_layer_isolation.js）：
+          浅色主题 · 黄昏 · .foot-note
+            全部图层      → 4.26 ✗（底色 rgb(241,219,203)，被橙光染过）
+            隐藏日辉      → 4.82 ✓（回到纸色）
+          即：日辉的橙色叠在页脚所在的「地面」带上，把 --fg-weak 的
+          对比度从 4.91 压到 4.26。
+        物理上也该如此 —— 太阳落在**地平线**，不该沉到地面带里。 */
+  function setGlowPosition(h, m) {
+    if (!sceneEl) return;
+    var t = h + m / 60;
+    if (t < 5 || t > 19) return;                  /* 夜里不覆盖 CSS 的默认值 */
+    var p = (t - 5) / 14;                          /* 0..1 across the day */
+    var x = 12 + p * 76;                           /* 12% → 88% */
+    /* 抛物线：正午最高（4%），早晚落到地平线（66%）为止 */
+    var y = 66 - Math.sin(p * Math.PI) * 62;       /* 66% → 4% → 66% */
+    sceneEl.style.setProperty("--glow-x", x.toFixed(1) + "%");
+    sceneEl.style.setProperty("--glow-y", y.toFixed(1) + "%");
+  }
+
+  function setSceneWeather(kind) {
+    if (!sceneEl) return;
+    sceneEl.setAttribute("data-weather", kind || "clear");
+  }
+
+  function updateScene() {
+    if (!sceneEl) return;
+    var d = new Date();
+    var h = d.getHours(), m = d.getMinutes();
+    var part = daypartOf(h, m);
+    if (sceneEl.getAttribute("data-daypart") !== part) {
+      sceneEl.setAttribute("data-daypart", part);
+    }
+    setGlowPosition(h, m);
+    /* 首帧填好后淡入（CSS 里 .scene 初始 opacity:0） */
+    if (sceneEl.hidden) sceneEl.hidden = false;
+    if (!sceneEl.classList.contains("is-ready")) {
+      /* 下一帧再加，确保浏览器已经按新属性算过样式 —— 否则淡入的第一帧
+         仍是默认色，等于白做防闪。 */
+      requestAnimationFrame(function () { sceneEl.classList.add("is-ready"); });
+    }
+  }
+
+  if (sceneEl) {
+    /* 天气若还没回来，先按晴天（作者要求）—— 等真实数据到了再覆盖 */
+    if (!sceneEl.getAttribute("data-weather")) setSceneWeather("clear");
+
+    updateScene();
+    setInterval(updateScene, 60000);
+
+    /* 从后台切回前台：立刻重算（可能已经跨了好几个时段） */
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) updateScene();
+    });
   }
 
   /* 首帧内联脚本已经按 localStorage 改过 <html lang>，这里把文案补齐 */

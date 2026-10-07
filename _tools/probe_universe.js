@@ -546,6 +546,52 @@ const SNAPSHOT = `(() => {
     ok(about.modal && about.hidden === true, "关于弹窗存在且初始隐藏");
     ok(about.len >= 30, "弹窗里有实质文案", about.len + " 字");
 
+    /* ============ 6.5 背景场景（2026-10-07 新增） ============
+       场景随现实时间与天气变化。这里验「结构正确」与「不破坏可读性」；
+       逐时段的对比度由 _tools/probe_scene_contrast.js 单独测
+       （那种测量要截图像素采样，放这里会让主探针变慢且依赖截图）。 */
+    const scene = await ev(`(() => {
+      const s = document.querySelector('#scene');
+      if (!s) return null;
+      const cs = getComputedStyle(s);
+      const sky = s.querySelector('.scene-sky');
+      return {
+        exists: true,
+        daypart: s.getAttribute('data-daypart'),
+        weather: s.getAttribute('data-weather'),
+        ready: s.classList.contains('is-ready'),
+        hidden: s.hidden,
+        zIndex: cs.zIndex,
+        position: cs.position,
+        pointerEvents: cs.pointerEvents,
+        /* 场景里不该有 .ico —— 那会被「图标数量/尺寸」判据误统计 */
+        icoInside: s.querySelectorAll('.ico').length,
+        /* 天空层要真的有渐变（不是空 div） */
+        skyHasGradient: sky ? /gradient/.test(getComputedStyle(sky).backgroundImage) : false,
+        layerCount: s.children.length
+      }; })()`);
+
+    ok(scene && scene.exists, "背景场景容器存在");
+    if (scene) {
+      ok(scene.ready && !scene.hidden, "场景已就绪并显示（JS 判定时间/天气后淡入）");
+      ok(["night", "dawn", "morning", "noon", "afternoon", "dusk", "evening"]
+           .indexOf(scene.daypart) >= 0, "data-daypart 是合法的 7 档之一", scene.daypart);
+      ok(["clear", "partly", "overcast", "fog", "rain", "snow"]
+           .indexOf(scene.weather) >= 0, "data-weather 是合法的 6 类之一", scene.weather);
+      ok(scene.position === "fixed", "场景是 fixed 覆盖层（不改 body 背景）", scene.position);
+      ok(scene.zIndex === "-1", "场景 z-index:-1（让 static 的卡片能盖住它）", scene.zIndex);
+      ok(scene.pointerEvents === "none", "场景不吃鼠标事件", scene.pointerEvents);
+      ok(scene.icoInside === 0, "场景内**没有** .ico（否则会被图标判据误统计）", scene.icoInside);
+      ok(scene.skyHasGradient, "天空层有渐变");
+      ok(scene.layerCount >= 4, "场景分层齐（sky/stars/glow/clouds）", scene.layerCount);
+    }
+
+    /* ★ body 背景色必须仍是 blog 的 --bg —— 场景是独立层，不该动它。
+       这条是「场景不与零彩度家族冲突」的硬守卫。 */
+    const bodyBgNow = await ev(`getComputedStyle(document.body).backgroundColor`);
+    ok(/rgb\(15,\s*15,\s*15\)|rgba\(15,\s*15,\s*15/.test(bodyBgNow),
+       "场景不影响 body 背景色（仍是 --bg #0f0f0f）", bodyBgNow);
+
     /* ============ 7. 零第三方请求（原版会拉 cdnjs 的 Font Awesome） ============
        白名单从 PROBE_URL 现取 —— 写死端口会在换端口时把它误判成第三方请求。
        ★ 线上探测会多出一个 static.cloudflareinsights.com：那是 Cloudflare 给

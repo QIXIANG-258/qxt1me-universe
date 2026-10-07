@@ -143,6 +143,445 @@ body::after {
   opacity: .05;
 }
 
+/* =========================================================
+   背景场景（2026-10-07）
+   随**现实时间**与**定位天气**变化：破晓 → 清晨 → 正午 → 黄昏 → 入夜 → 深夜。
+
+   设计约束（先读了探针才这么写）：
+     ① 探针验 `body` 的 backgroundColor 必须等于 blog 的 --bg(#0f0f0f)，
+        所以场景**不能改 body 背景色** —— 它是独立的 fixed overlay。
+     ② 探针把 `.ico svg` 当界面图标统计（要求 iconsTooSmall===0、
+        hiddenOutsideHints===0），所以这层的元素**不带 .ico 类**。
+     ③ 用 z-index:-1 而不是 0/1 —— 这样 .container / footer 这些
+        **未定位（static）** 的元素才能正常盖在场景之上。
+        （static 元素的绘制顺序低于任何定位元素，若场景用 z-index:0
+          就会压住卡片。）
+     ④ `body` 不加 isolation —— 那会创建层叠上下文，把 z-index:-1
+        锁在 body 内部，场景就跑到 body 背景色之下了。
+
+   UI 零彩度的家族铁律仍然成立：**有颜色的是场景（它算内容），
+   卡片与文字照旧是纯灰阶。**
+   ========================================================= */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  /* 首帧不可见 —— JS 会先把 data-daypart / data-weather 填对，
+     再加 .is-ready 淡入。否则会「先闪一下默认的深夜色、再跳到正午」。
+     （HTML 里同时有 hidden，双保险：JS 没跑起来时场景完全不出现。） */
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+
+.scene.is-ready { opacity: 1; }
+
+.scene[hidden] { display: none; }
+
+/* ── 天空：一次线性渐变铺满，颜色由下面的时段变量决定 ──
+   🔴 结构是「天空 → 地平线 → 地面」，不是简单的「上深下浅」。
+      为什么必须有**地面**这一段：
+        最初的版本让地平线（最亮处）落在页面底部，而页脚的小字
+        （12–17px，需 4.5 对比度）正好在那里 —— 实测正午只有 1.09，
+        等于看不见。
+        把底部改成「地面」（暗）之后：天光该亮的地方亮（中段，多被卡片挡住），
+        文字该清的地方清（顶部时钟、底部页脚都落在暗区）。
+        这既符合真实视觉（站在地上看天，脚边是暗的），也顺带解决了可读性。 */
+.scene-sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--sky-top) 0%,
+    var(--sky-mid) 38%,
+    var(--sky-horizon) 62%,
+    var(--ground) 80%,
+    var(--ground) 100%
+  );
+  transition: background 2.4s var(--ease);
+}
+
+/* ── 日辉 / 月晕：一团柔和的径向光，位置与颜色随时段走 ──
+     用 --glow-x / --glow-y 定位（百分比），JS 按时间算太阳高度。
+     太阳落山后这层变成月晕（更小更冷）。 */
+.scene-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--glow-x, 50%) var(--glow-y, 14%),
+    var(--glow-color) 0%,
+    transparent var(--glow-size, 42%)
+  );
+  transition: background 2.4s var(--ease);
+  opacity: var(--glow-opacity, 1);
+}
+
+/* ── 星空：深夜才出现，用 repeating radial 做低密度星点 ──
+     不用位图，纯 CSS，零请求。 */
+.scene-stars {
+  position: absolute;
+  inset: 0;
+  opacity: var(--stars-opacity, 0);
+  transition: opacity 2.4s var(--ease);
+  background-image:
+    radial-gradient(1.2px 1.2px at 12% 18%, rgba(255, 255, 255, .85), transparent 55%),
+    radial-gradient(1px 1px at 34% 9%, rgba(255, 255, 255, .7), transparent 55%),
+    radial-gradient(1.4px 1.4px at 58% 22%, rgba(255, 255, 255, .8), transparent 55%),
+    radial-gradient(1px 1px at 76% 12%, rgba(255, 255, 255, .65), transparent 55%),
+    radial-gradient(1.1px 1.1px at 88% 26%, rgba(255, 255, 255, .75), transparent 55%),
+    radial-gradient(1px 1px at 22% 33%, rgba(255, 255, 255, .55), transparent 55%),
+    radial-gradient(1.3px 1.3px at 46% 38%, rgba(255, 255, 255, .7), transparent 55%),
+    radial-gradient(1px 1px at 68% 44%, rgba(255, 255, 255, .6), transparent 55%),
+    radial-gradient(1.2px 1.2px at 5% 46%, rgba(255, 255, 255, .6), transparent 55%),
+    radial-gradient(1px 1px at 92% 52%, rgba(255, 255, 255, .5), transparent 55%);
+  background-repeat: no-repeat;
+}
+
+/* ── 云层：用两三团柔和的模糊椭圆叠出层次，密度由天气决定 ──
+     晴天几乎看不见，阴雨天明显。 */
+.scene-clouds {
+  position: absolute;
+  inset: 0;
+  opacity: var(--clouds-opacity, 0);
+  transition: opacity 2.4s var(--ease);
+  background-image:
+    radial-gradient(38% 22% at 22% 30%, var(--cloud-color) 0%, transparent 70%),
+    radial-gradient(46% 26% at 62% 22%, var(--cloud-color) 0%, transparent 72%),
+    radial-gradient(32% 18% at 86% 36%, var(--cloud-color) 0%, transparent 70%),
+    radial-gradient(50% 24% at 44% 44%, var(--cloud-color) 0%, transparent 74%);
+  filter: blur(14px);
+}
+
+/* ── 遮罩（veil）：场景与内容之间的一层，**保证文字可读性** ──
+   🔴 为什么必须有：正午的亮蓝天空下，浅色文字实测对比度只有 1.09
+      （WCAG 要求 ≥4.5），等于看不见。实测数据：
+        noon  .foot-name 1.09 / #clockDate 1.80
+        morning .foot-name 1.26 / #clockDate 1.78
+      而 body 背景色**不能改**（探针验它必须等于 blog 的 --bg），
+      所以只能在场景内部压一层。
+
+   为什么用「渐变」而不是「统一透明度」：
+     · 上半屏只有时钟（80px 大字，只需 3.0）→ 遮罩可以轻，
+       让天空的色相与亮度尽量保留
+     · 下半屏是 12–17px 的小字（需 4.5）→ 必须压得更重
+     一条从上到下递增的渐变正好对应这个需求。
+
+   夜间本来就地暗，这层对它几乎无影响 —— 所以不必按时段切换。 */
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* 🔴 分带压制，而不是「整体匀压一层」：
+       ① 顶部暗带（0–26%）—— 时钟与日期在这里，必须够暗
+       ② 中段轻遮罩（40–68%）—— 天空的色相与亮度主要留在这里
+       ③ 底部暗带（80–100%）—— 页脚小字在这里
+
+     为什么不匀压：顶部那行 15px 的日期要达标需压到约 0.58，
+     匀压会把中段天空一起压灰 —— 正午看起来像阴天，失去时段辨识度。
+     只压内容真正所在的两条带，中段颜色就保住了。
+     （黄昏那档本来就偏暗，匀压也能过，所以问题只在正午/清晨这类亮天空上暴露。） */
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / var(--veil-top, 0)) 0%,
+    rgb(0 0 0 / var(--veil-top, 0)) 26%,
+    rgb(0 0 0 / var(--veil, 0)) 40%,
+    rgb(0 0 0 / var(--veil, 0)) 68%,
+    rgb(0 0 0 / var(--veil-bottom, 0)) 80%,
+    rgb(0 0 0 / var(--veil-bottom, 0)) 100%
+  );
+  transition: background 2.4s var(--ease);
+}
+
+/* ---------------------------------------------------------
+   时段色板 —— JS 只负责把 data-daypart 写到 .scene 上，
+   颜色全部留在这里，改配色不必动 JS。
+
+   ⚠️ 色相只在场景里出现（天光/日辉），**卡片与文字仍是灰阶**。
+      这是「场景算内容、UI 零彩度」的分界。
+   --------------------------------------------------------- */
+
+/* 深夜（0–4）*/
+.scene[data-daypart="night"] {
+  --sky-top: #05060b;
+  --sky-mid: #0a0d16;
+  --sky-low: #10141f;
+  --sky-horizon: #161b28;
+  --ground: #04050a;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: 0;  --veil-top: 0;  --veil-bottom: 0;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(150, 170, 210, .10);
+  --glow-size: 34%;
+  --glow-x: 76%;
+  --glow-y: 18%;
+  --glow-opacity: .9;
+  --stars-opacity: .75;
+  --clouds-opacity: .10;
+  --cloud-color: rgba(150, 165, 195, .16);
+}
+
+/* 破晓（4–6）：地平线泛出冷蓝紫 */
+.scene[data-daypart="dawn"] {
+  --sky-top: #0a1020;
+  --sky-mid: #1b2440;
+  --sky-low: #3b3f5c;
+  --sky-horizon: #6b5a63;
+  --ground: #0b0d16;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .10;  --veil-top: .34;  --veil-bottom: .34;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(255, 170, 120, .30);
+  --glow-size: 46%;
+  --glow-x: 22%;
+  --glow-y: 64%;
+  --glow-opacity: 1;
+  --stars-opacity: .18;
+  --clouds-opacity: .26;
+  --cloud-color: rgba(255, 190, 160, .20);
+}
+
+/* 清晨（6–9）：暖白偏金，天光亮起来 */
+.scene[data-daypart="morning"] {
+  --sky-top: #4b6a92;
+  --sky-mid: #8aa3bd;
+  --sky-low: #c9b79f;
+  --sky-horizon: #e8d3ae;
+  --ground: #141519;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .16;  --veil-top: .58;  --veil-bottom: .62;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(255, 226, 170, .42);
+  --glow-size: 52%;
+  --glow-x: 18%;
+  --glow-y: 62%;
+  --glow-opacity: 1;
+  --stars-opacity: 0;
+  --clouds-opacity: .30;
+  --cloud-color: rgba(255, 255, 255, .28);
+}
+
+/* 正午（9–16）：高而亮的蓝，日辉移到顶部 */
+.scene[data-daypart="noon"] {
+  --sky-top: #3d6ea8;
+  --sky-mid: #6f9ecb;
+  --sky-low: #a8c4dd;
+  --sky-horizon: #d6e2ea;
+  --ground: #17181d;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .20;  --veil-top: .62;  --veil-bottom: .66;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(255, 250, 225, .5);
+  --glow-size: 58%;
+  --glow-x: 50%;
+  --glow-y: -12%;
+  --glow-opacity: 1;
+  --stars-opacity: 0;
+  --clouds-opacity: .34;
+  --cloud-color: rgba(255, 255, 255, .34);
+}
+
+/* 午后（16–18）：开始偏暖 */
+.scene[data-daypart="afternoon"] {
+  --sky-top: #4a76a4;
+  --sky-mid: #86a6c0;
+  --sky-low: #c4b49c;
+  --sky-horizon: #e3c9a2;
+  --ground: #16161a;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .18;  --veil-top: .58;  --veil-bottom: .62;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(255, 236, 190, .46);
+  --glow-size: 54%;
+  --glow-x: 66%;
+  --glow-y: 40%;
+  --glow-opacity: 1;
+  --stars-opacity: 0;
+  --clouds-opacity: .30;
+  --cloud-color: rgba(255, 250, 240, .30);
+}
+
+/* 黄昏（18–20）：最绚的一段，橙红压在地平线 */
+.scene[data-daypart="dusk"] {
+  --sky-top: #24304f;
+  --sky-mid: #4a4a6e;
+  --sky-low: #a5645f;
+  --sky-horizon: #e08a52;
+  --ground: #121118;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .12;  --veil-top: .44;  --veil-bottom: .46;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(255, 150, 80, .46);
+  --glow-size: 56%;
+  --glow-x: 82%;
+  --glow-y: 64%;
+  --glow-opacity: 1;
+  --stars-opacity: .10;
+  --clouds-opacity: .32;
+  --cloud-color: rgba(255, 170, 120, .26);
+}
+
+/* 入夜（20–22）：蓝调时刻，余晖未尽 */
+.scene[data-daypart="evening"] {
+  --sky-top: #101828;
+  --sky-mid: #1d2b45;
+  --sky-low: #33415e;
+  --sky-horizon: #5b4f62;
+  --ground: #070910;          /* 地面（页面底部）—— 必须够暗，页脚小字靠它 */
+
+  --veil: .06;  --veil-top: .20;  --veil-bottom: .22;   /* 中段 / 顶带 / 底带：分带压制，中段留色相 */  --glow-color: rgba(200, 160, 170, .20);
+  --glow-size: 42%;
+  --glow-x: 88%;
+  --glow-y: 62%;
+  --glow-opacity: .95;
+  --stars-opacity: .30;
+  --clouds-opacity: .20;
+  --cloud-color: rgba(180, 190, 215, .18);
+}
+
+/* ---------------------------------------------------------
+   天气叠加（在时段色板之上再做一层修正）
+   · 晴天：云几乎没了、日辉更强
+   · 多云：云量中等
+   · 阴/雾：云铺满、日辉压暗、整体降饱和
+   · 雨雪：云更沉、天光更冷更灰
+   ⚠️ 只覆盖变量，不新增元素 —— 保持 DOM 简单。
+   --------------------------------------------------------- */
+.scene[data-weather="clear"] {
+  --clouds-opacity: .06;
+  --glow-opacity: 1;
+}
+.scene[data-weather="partly"] {
+  --clouds-opacity: .34;
+}
+.scene[data-weather="overcast"] {
+  --clouds-opacity: .72;
+  --glow-opacity: .45;
+  --cloud-color: rgba(190, 195, 205, .30);
+}
+.scene[data-weather="fog"] {
+  --clouds-opacity: .85;
+  --glow-opacity: .30;
+  --cloud-color: rgba(200, 205, 212, .34);
+}
+.scene[data-weather="rain"] {
+  --clouds-opacity: .80;
+  --glow-opacity: .22;
+  --cloud-color: rgba(150, 160, 175, .30);
+}
+.scene[data-weather="snow"] {
+  --clouds-opacity: .66;
+  --glow-opacity: .32;
+  --cloud-color: rgba(225, 230, 240, .38);
+}
+
+
+/* ---------------------------------------------------------
+   浅色主题的**淡色天空**（v2，由 _cleanup/gen_light_palette.py 生成）
+
+   🔑 为什么不是「深色色板 + 高遮罩」：
+       实测过三版都失败 —— multiply 14 项不达标 / opacity .20 时 10 项 /
+       opacity .55+veil .86 时 7 项；而把遮罩提到 .96 勉强全过，
+       却发现天空偏离纸色仅 4/255，**等于看不见**。
+       根因：浅色主题是「深字压亮底」，任何压暗都在吃掉
+       --fg-weak 那点余量（它在纸色上只有 4.91，需 4.5）。
+
+   🔑 v2 的做法是**分带定标**（先量了文字的真实位置）：
+       · --ground 正好等于纸色 → 页脚（89–93%）拿回原始基准，不受天空影响
+       · 三个天空停靠点只受**日期**那条约束（--fg-alt 基准 5.77，余量宽 3 倍）
+         → 可以保留 13% 的原天空色，得到可辨的色相
+       · 站点卡片（45–75.7%）自身不透明，它背后的天空无约束
+     即：把有限的可读性预算花在文字真正所在的两条带上，中段留给颜色。
+   --------------------------------------------------------- */
+html[data-theme="light"] .scene[data-daypart="night"] {
+  --sky-top: #dbd9d6;
+  --sky-mid: #dbdad7;
+  --sky-horizon: #dcdad8;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="dawn"] {
+  --sky-top: #d9d8d6;
+  --sky-mid: #dbdad9;
+  --sky-horizon: #dedcdc;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="morning"] {
+  --sky-top: #c8ced5;
+  --sky-mid: #d8dcdf;
+  --sky-horizon: #e7e1d8;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="noon"] {
+  --sky-top: #c7d1db;
+  --sky-mid: #d2dce3;
+  --sky-horizon: #dfe4e7;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="afternoon"] {
+  --sky-top: #c5cfd8;
+  --sky-mid: #d4dbdf;
+  --sky-horizon: #e5dfd6;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="dusk"] {
+  --sky-top: #d5d5d6;
+  --sky-mid: #dad9da;
+  --sky-horizon: #e6dcd8;
+  --ground: #f0eeea;
+}
+
+html[data-theme="light"] .scene[data-daypart="evening"] {
+  --sky-top: #dad9d7;
+  --sky-mid: #dbdada;
+  --sky-horizon: #dddddc;
+  --ground: #f0eeea;
+}
+
+/* 浅色主题关掉深色遮罩：色板自己就够淡，再加遮罩会把色相也洗掉。
+   同时把云/星改成适合浅底的形态（白点白云在浅底上等于看不见）。 */
+html[data-theme="light"] .scene {
+  opacity: 1;
+  --veil: 0;
+  --veil-top: 0;
+  --veil-bottom: 0;
+  --glow-opacity: .55;
+  --stars-opacity: 0;                       /* 浅底上不该有星星 */
+  --cloud-color: rgba(150, 158, 172, .30);  /* 灰调云，白点在浅底看不见 */
+}
+
+/* 🔴 浅色主题下要把日辉**裁掉下半部分**。
+   为什么：光晕是径向渐变、有半径（--glow-size 最大 58%）。
+   只把中心压到地平线以内（--glow-y: 64%）还不够 —— 半径仍会延伸进
+   页脚所在的地面带（89–93%），把纸色染成暖橙。
+   实测（_tools/probe_layer_isolation.js，浅色 · dusk · .foot-note）：
+     全部图层                        4.26 ✗  底色 rgb(241,219,203)
+     隐藏日辉                        4.82 ✓  底色 rgb(238,236,232)
+     --glow-y 从 82% 压到 64% 之后   4.45 ✗（还差 0.05）
+   所以用 mask 让它在地面带之前淡出 —— 物理上也对：
+   阳光照在地平线以上，不会照到脚边。
+   （深色主题不需要这层：那里文字是浅色，暖光只会**增加**对比度。） */
+html[data-theme="light"] .scene-glow {
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 56%, transparent 74%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 56%, transparent 74%);
+}
+
+/* ── 明暗主题联动 ──
+   🔴 浅色主题**不能用 mix-blend-mode: multiply**，也不能靠「降低不透明度」或
+      「加纸色遮罩」。实测四版都失败（浅色 · 有场景 vs 无场景 · 逐项对比）：
+        multiply + opacity .30        → 14 项不达标
+        去掉 multiply，仅 opacity .20  → 10 项
+        opacity .55 + 纸色遮罩 .86     →  7 项
+        opacity .50 + 纸色遮罩 .96     →  0 项，但天空偏离纸色仅 4/255（等于看不见）
+      根因：浅色主题是「深字压亮底」，而 --fg-weak 在纸色上只有 4.91
+      （需 4.5）—— 只剩 0.41 余量，任何压暗都会吃掉它。
+
+   🔑 最终方案（见上方 `html[data-theme="light"] .scene[data-daypart=...]` 色板）：
+      改成**向白混**生成淡色天空 —— 底色比纸色更亮，对比度**不降反升**，
+      同时保留各时段的色相差异。所以这里的遮罩归零。
+      深浅两套色板是分别求解的，不是同一套加不同遮罩。 */
+
+/* 系统偏好「减少动效」时，场景直接静态呈现（不做 2.4s 渐变） */
+@media (prefers-reduced-motion: reduce) {
+  .scene, .scene-sky, .scene-glow, .scene-stars, .scene-clouds {
+    transition: none;
+  }
+}
+
 ::selection {
   background: rgb(var(--hl-rgb));
   color: rgb(var(--hl-ink-rgb));
