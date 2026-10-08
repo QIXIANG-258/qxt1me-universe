@@ -9,6 +9,29 @@
     <meta name="robots" content="index, follow" />
     <title>universe · 憩想</title>
 
+    <!-- canonical + Open Graph / Twitter（2026-10-08 补）：
+         此前本站只有 title/description/robots —— 分享出去没有卡片，
+         抓取也少了「主域名就是它」这条信号（gear 有 canonical，blog 全齐）。
+         og:image 用现成的 icon-512.png（512×512，实测尺寸），配 twitter:card=summary ——
+         方形图配 summary 是**正确**组合，配 summary_large_image 才会被裁成横条。
+         ⚠️ 本站没有 1200×630 的横版分享图，不为此临时造一张；真要更好看的卡片，
+         是以后单独产出一张 og-cover.png 的事（见项目要点里的交接文档待办）。 -->
+    <link rel="canonical" href="https://universe.qxt1me.dpdns.org/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="universe · 憩想" />
+    <meta property="og:title" content="universe · 憩想" />
+    <meta property="og:description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
+    <meta property="og:url" content="https://universe.qxt1me.dpdns.org/" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:image" content="https://universe.qxt1me.dpdns.org/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="universe — 憩想的个人站群总入口" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="universe · 憩想" />
+    <meta name="twitter:description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
+    <meta name="twitter:image" content="https://universe.qxt1me.dpdns.org/icon-512.png" />
+
     <!-- 首帧应用已保存的主题与语言，避免深/浅切换与中英切换时闪一下 -->
     <script>
       try {
@@ -36,6 +59,12 @@
     <link rel="manifest" href="manifest.webmanifest" />
   </head>
   <body>
+    <!-- 跳到主内容（2026-10-08 补）：键盘用户 Tab 第一下就能越过顶部控件与搜索框。
+         藏法用 transform 移出视口，**不能 display:none / visibility:hidden**
+         —— 那样它拿不到焦点，等于没有。聚焦时滑回左上角。
+         文字走 data-zh / data-en，跟着站内语言切换（app.js 的全局扫描覆盖它）。 -->
+    <a class="skip-link" href="#main" data-zh="跳到主内容" data-en="Skip to content">跳到主内容</a>
+
     <!-- 背景场景（2026-10-07）：随现实时间与天气变化。
          ⚠️ 这一层的 SVG **不带 .ico 类** —— 探针把 `.ico svg` 当界面图标统计，
             带了会被算进 iconCount 并可能触发「塌成 0 尺寸」的假红。
@@ -47,22 +76,29 @@
       <div class="scene-clouds"></div>
     </div>
 
-    <!-- 顶部两侧控件：左上「关于」，右上语言 + 明暗。
-         两侧对称，中间留白给时钟。 -->
-    <div class="tools tools-left">
-      <button type="button" class="tool-btn" id="aboutBtn" aria-haspopup="dialog"
-              aria-controls="aboutModal" aria-label="关于本站 / About">
-        <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><circle class="dot" cx="12" cy="7.6" r="1.15"/></svg></i>
-        <span data-zh="关于" data-en="About">关于</span>
-      </button>
-    </div>
-    <div class="tools tools-right">
-      <a class="tool-btn" href="https://github.com/QIXIANG-258" target="_blank" rel="noopener" aria-label="Github" title="Github">
-        <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><g transform="translate(1.0000 1.2286) scale(0.086275)" fill="none" stroke="currentColor" stroke-width="17.386" stroke-linecap="round" stroke-linejoin="round"><path d="M127.505 0C57.095 0 0 57.085 0 127.505c0 56.336 36.534 104.13 87.196 120.99 6.372 1.18 8.712-2.766 8.712-6.134 0-3.04-.119-13.085-.173-23.739-35.473 7.713-42.958-15.044-42.958-15.044-5.8-14.738-14.157-18.656-14.157-18.656-11.568-7.914.872-7.752.872-7.752 12.804.9 19.546 13.14 19.546 13.14 11.372 19.493 29.828 13.857 37.104 10.6 1.144-8.242 4.449-13.866 8.095-17.05-28.32-3.225-58.092-14.158-58.092-63.014 0-13.92 4.981-25.295 13.138-34.224-1.324-3.212-5.688-16.18 1.235-33.743 0 0 10.707-3.427 35.073 13.07 10.17-2.826 21.078-4.242 31.914-4.29 10.836.048 21.752 1.464 31.942 4.29 24.337-16.497 35.029-13.07 35.029-13.07 6.94 17.563 2.574 30.531 1.25 33.743 8.175 8.929 13.122 20.303 13.122 34.224 0 48.972-29.828 59.756-58.22 62.912 4.573 3.957 8.648 11.717 8.648 23.612 0 17.06-.148 30.791-.148 34.991 0 3.393 2.295 7.369 8.759 6.117 50.634-16.879 87.122-64.656 87.122-120.973C255.009 57.085 197.922 0 127.505 0"/></g></svg></i>
-      </a>
-      <button type="button" class="tool-btn" id="langBtn" aria-label="切换语言 / Switch language">EN</button>
-      <button type="button" class="tool-btn" id="themeBtn" aria-label="切换明暗主题 / Toggle theme">◐</button>
-    </div>
+    <!-- 顶部控件区（2026-10-08 补地标语义）：此前页面只有 main 与 footer，
+         地标结构缺 banner/navigation。包一层 header 元素 **不改变任何布局** ——
+         .tools 是 position:fixed，相对视口定位，这层 header 自身高度为 0。
+         ⚠️ 不要给这层容器加 transform / filter / will-change / contain ——
+            任何一条都会让它成为 fixed 子元素的包含块，顶部控件会立刻跑位。 -->
+    <header>
+      <!-- 顶部两侧控件：左上「关于」，右上语言 + 明暗。
+           两侧对称，中间留白给时钟。 -->
+      <div class="tools tools-left">
+        <button type="button" class="tool-btn" id="aboutBtn" aria-haspopup="dialog"
+                aria-controls="aboutModal" aria-label="关于本站 / About">
+          <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><circle class="dot" cx="12" cy="7.6" r="1.15"/></svg></i>
+          <span data-zh="关于" data-en="About">关于</span>
+        </button>
+      </div>
+      <div class="tools tools-right">
+        <a class="tool-btn" href="https://github.com/QIXIANG-258" target="_blank" rel="noopener" aria-label="Github" title="Github">
+          <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><g transform="translate(1.0000 1.2286) scale(0.086275)" fill="none" stroke="currentColor" stroke-width="17.386" stroke-linecap="round" stroke-linejoin="round"><path d="M127.505 0C57.095 0 0 57.085 0 127.505c0 56.336 36.534 104.13 87.196 120.99 6.372 1.18 8.712-2.766 8.712-6.134 0-3.04-.119-13.085-.173-23.739-35.473 7.713-42.958-15.044-42.958-15.044-5.8-14.738-14.157-18.656-14.157-18.656-11.568-7.914.872-7.752.872-7.752 12.804.9 19.546 13.14 19.546 13.14 11.372 19.493 29.828 13.857 37.104 10.6 1.144-8.242 4.449-13.866 8.095-17.05-28.32-3.225-58.092-14.158-58.092-63.014 0-13.92 4.981-25.295 13.138-34.224-1.324-3.212-5.688-16.18 1.235-33.743 0 0 10.707-3.427 35.073 13.07 10.17-2.826 21.078-4.242 31.914-4.29 10.836.048 21.752 1.464 31.942 4.29 24.337-16.497 35.029-13.07 35.029-13.07 6.94 17.563 2.574 30.531 1.25 33.743 8.175 8.929 13.122 20.303 13.122 34.224 0 48.972-29.828 59.756-58.22 62.912 4.573 3.957 8.648 11.717 8.648 23.612 0 17.06-.148 30.791-.148 34.991 0 3.393 2.295 7.369 8.759 6.117 50.634-16.879 87.122-64.656 87.122-120.973C255.009 57.085 197.922 0 127.505 0"/></g></svg></i>
+        </a>
+        <button type="button" class="tool-btn" id="langBtn" aria-label="切换语言 / Switch language">EN</button>
+        <button type="button" class="tool-btn" id="themeBtn" aria-label="切换明暗主题 / Toggle theme">◐</button>
+      </div>
+    </header>
 
     <div class="clock">
       <div class="clock-time" id="clockTime">--:--</div>
@@ -113,12 +149,22 @@
       </div>
     </div>
 
-    <main>
+    <main id="main">
+      <!-- 页面主标题（2026-10-08 补）：此前整页**没有 H1**（最高级是下面那个
+           「站点」H2），可访问性与抓取语义都弱。这里用 sr-only —— 页面的视觉
+           主角是时钟与留白，塞一个可见的大标题会把设计打散；
+           「站点」仍是 H2，于是层级是 H1（页面名）→ H2（板块名），不跳级。 -->
+      <h1 class="sr-only" data-zh="universe · 憩想 — 个人站群总入口" data-en="universe · Qi Xiang — entry to my sites">universe · 憩想 — 个人站群总入口</h1>
+
       <!-- 单栏：universe 的职责是「指到哪个站」。
            2026-10-07：「关于本站」改成左上角弹窗、「联系方式」挪进页脚，
-           所以这里只剩站点栏。 -->
-      <div class="container social-container">
-        <h2>
+           所以这里只剩站点栏。
+           2026-10-08：容器由 div 改成 nav（补 navigation 地标）—— **类名不变**，
+           所以 CSS 的 .container / .social-container 与探针的选择器全部照旧命中。
+           用 aria-labelledby 指向自己的 H2（「站点 / Sites」）：标签跟着语言切换，
+           写死 aria-label 反而不会翻。 -->
+      <nav class="container social-container" aria-labelledby="sitesTitle">
+        <h2 id="sitesTitle">
           <i class="ico" aria-hidden="true">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.4-3.8-8.5S9.5 5.9 12 3.5z"/></svg>
           </i>
@@ -138,6 +184,15 @@
           <span data-zh="器材库" data-en="Gear Search">器材库</span>
           <span class="hint">gear-search.qxt1me.dpdns.org</span>
         </a>
+        <!-- 2048 小游戏（2026-10-07 上线）：
+             图标是 2×2 的方块格 —— 与另外两条同为线性描边，不填色。 -->
+        <a href="https://2048.qxt1me.dpdns.org/">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>
+          </i>
+          <span data-zh="2048 小游戏" data-en="2048 Game">2048 小游戏</span>
+          <span class="hint">2048.qxt1me.dpdns.org</span>
+        </a>
 
         <!-- 天气（Open-Meteo；访客定位优先，失败落到成都）——
              放在「站点」卡片内，作者要求这个框里加天气显示。 -->
@@ -146,7 +201,7 @@
           <span class="weather-temp" id="weatherTemp"></span>
           <span class="weather-city" id="weatherCity"></span>
         </div>
-      </div>
+      </nav>
     </main>
 
     <!-- 页脚：落款 + 联系方式，**融为一体**（无分割线、无说明文字）。

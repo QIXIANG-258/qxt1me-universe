@@ -43,6 +43,7 @@
      --------------------------------------------------------- */
   var BLOG = "https://blog.qxt1me.dpdns.org/";
   var GEAR = "https://gear-search.qxt1me.dpdns.org/";
+  var G2048 = "https://2048.qxt1me.dpdns.org/";
 
   /* 站点直达。前缀对应「站点」栏里的站名，不是站内某页 ——
      universe 只负责把前缀解析到「哪个站」。
@@ -53,7 +54,9 @@
     "ph:": BLOG,        /* 摄影小站 Photo Journal */
     "blog:": BLOG,
     "gear:": GEAR,      /* 器材库 Gear Search —— 注意域名是 gear-search. 不是 gear. */
-    "gs:": GEAR
+    "gs:": GEAR,
+    "2048:": G2048,     /* 2048 小游戏（2026-10-07 上线） */
+    "game:": G2048
   };
 
   /* 搜索引擎前缀 */

@@ -1,5 +1,5 @@
 /* =========================================================
-   universe 验收探针（55 项）
+   universe 验收探针（条数以实跑输出的「共 N 项」为准，不在这里写死）
    默认基线：http://127.0.0.1:8802/（需先起静态服务，见 README）
    验线上：set PROBE_URL=https://universe.qxt1me.dpdns.org/
 
@@ -290,7 +290,84 @@ const SNAPSHOT = `(() => {
 
     /* 全局过渡是否还挂在所有属性上（原版 * { transition: .2s ease-in-out }） */
     bodyTransitionProp: getComputedStyle(document.body).transitionProperty,
-    imgTransition: (() => { const i = document.querySelector('img'); return i ? getComputedStyle(i).transitionProperty : null; })()
+    imgTransition: (() => { const i = document.querySelector('img'); return i ? getComputedStyle(i).transitionProperty : null; })(),
+
+    /* ---- SEO 元信息 / 地标 / 无障碍（2026-10-08 补，判据见 §13）----
+       ⚠️ 本段在模板字符串内：注释里不能出现反引号，字符串拼接只能用单引号，
+          正则一律挪到 Node 侧做（模板字符串会吞掉反斜杠）。 */
+    canonical: (document.querySelector('link[rel="canonical"]') || {}).href || null,
+    metaOg: (() => {
+      const o = {};
+      document.querySelectorAll('meta[property^="og:"]').forEach((m) => {
+        o[m.getAttribute('property')] = m.getAttribute('content');
+      });
+      return o;
+    })(),
+    metaTwitter: (() => {
+      const o = {};
+      document.querySelectorAll('meta[name^="twitter:"]').forEach((m) => {
+        o[m.getAttribute('name')] = m.getAttribute('content');
+      });
+      return o;
+    })(),
+    /* H1：整页应当恰好一个，且落在 main 里、有文字 */
+    h1s: [...document.querySelectorAll('h1')].map((h) => ({
+      text: (h.textContent || '').trim().slice(0, 60),
+      cls: String(h.className || ''),
+      inMain: !!h.closest('main'),
+    })),
+    /* 地标：banner(header 在 main 之外) / navigation(nav) / main / contentinfo(footer) */
+    landmarks: {
+      header: document.querySelectorAll('header').length,
+      headerOutsideMain: [...document.querySelectorAll('header')].filter((h) => !h.closest('main')).length,
+      nav: document.querySelectorAll('nav').length,
+      main: document.querySelectorAll('main').length,
+      footer: document.querySelectorAll('footer').length,
+    },
+    /* 跳到主内容：既要「在」也要「真能用」——
+       常见的假实现是 display:none（等于没有）或指向不存在的锚点。
+       ⚠️ 这里只取**静态**信息；「聚焦后是否可见」必须等 0.15s 的 transform
+          过渡跑完再量，同步量到的永远是藏着的中间帧（会稳定假红）。
+          那段带 sleep 的测量放在主流程的 §13（skipFocus）。 */
+    skipLink: (() => {
+      const a = document.querySelector('.skip-link');
+      if (!a) return null;
+      const cs = getComputedStyle(a);
+      /* 「Tab 第一站」用 DOM 顺序的静态判据，不真的按键（按键会受焦点历史干扰） */
+      const foc = [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
+        .filter((el) => {
+          if (el.hasAttribute('disabled')) return false;
+          if (el.getAttribute('tabindex') === '-1') return false;
+          const st = getComputedStyle(el);
+          return st.display !== 'none' && st.visibility !== 'hidden';
+        });
+      const href = a.getAttribute('href') || '';
+      return {
+        href: href,
+        targetExists: !!document.querySelector(href),
+        display: cs.display,
+        visibility: cs.visibility,
+        isFirstFocusable: foc[0] === a,
+        text: (a.textContent || '').trim(),
+      };
+    })(),
+    /* 顶部控件的位置快照 —— 用来守「给 .tools 包一层 header 没把它变成包含块」。
+       fixed 元素的包含块一旦被改变（祖先带上 transform/filter/contain），
+       它会立刻从视口定位变成相对那个祖先定位，实测会整体跑位。 */
+    toolsRect: (() => {
+      const l = document.querySelector('.tools-left');
+      const r2 = document.querySelector('.tools-right');
+      if (!l || !r2) return null;
+      const a = l.getBoundingClientRect();
+      const b = r2.getBoundingClientRect();
+      return {
+        pos: getComputedStyle(l).position,
+        left: Math.round(a.left),
+        top: Math.round(a.top),
+        rightGap: Math.round(window.innerWidth - b.right),
+        rightTop: Math.round(b.top),
+      };
+    })()
   };
 })()`;
 
@@ -757,7 +834,135 @@ const SNAPSHOT = `(() => {
     drainExceptions();
     ok(exceptions.length === 0, "切主题+切语言过程中无异常", exceptions.slice(0, 2).join(" | "));
 
-    /* ============ 13. 手机视口：横向不溢出 ============ */
+    /* ============ 13. SEO 元信息 / 地标 / 无障碍（2026-10-08 补） ============
+       背景：外部评测报告指出本站「无 OG、无 canonical、robots/sitemap 均 404、
+       无 H1、无 skip link、无 header/nav 地标」。这一节把修复钉死成判据，
+       免得下次改动又悄悄退回原状。 */
+    ok(s.canonical === "https://universe.qxt1me.dpdns.org/",
+       "canonical 指向本站根域名", String(s.canonical));
+
+    ok(!!s.metaOg["og:title"] && !!s.metaOg["og:description"],
+       "OG 的 title / description 都在", Object.keys(s.metaOg).join(","));
+    ok(s.metaOg["og:url"] === "https://universe.qxt1me.dpdns.org/",
+       "og:url 与 canonical 一致", String(s.metaOg["og:url"]));
+    /* ⚠️ og:image 必须是**绝对** https 地址 —— 相对路径在多数抓取器里等于没有图 */
+    ok(/^https:\/\/universe\.qxt1me\.dpdns\.org\/\S+\.(png|jpg|jpeg|webp)$/.test(String(s.metaOg["og:image"] || "")),
+       "og:image 是本站域名的绝对 https 图片地址", String(s.metaOg["og:image"]));
+    ok(!!s.metaOg["og:image:width"] && !!s.metaOg["og:image:height"],
+       "og:image 声明了尺寸（抓取器据此排版卡片）",
+       s.metaOg["og:image:width"] + "x" + s.metaOg["og:image:height"]);
+
+    /* 卡片比例与 image 形状必须匹配：方形图配 summary_large_image 会被裁成横条。
+       本站用的是 icon-512.png（512×512 方形），所以正确组合是 summary。 */
+    const ogW = Number(s.metaOg["og:image:width"]);
+    const ogH = Number(s.metaOg["og:image:height"]);
+    const imgIsSquare = ogW > 0 && ogH > 0 && Math.abs(ogW / ogH - 1) < 0.05;
+    ok(!imgIsSquare || s.metaTwitter["twitter:card"] === "summary",
+       "方形 og:image 配 twitter:card=summary（不是 large_image）",
+       "card=" + s.metaTwitter["twitter:card"] + " img=" + ogW + "x" + ogH);
+    ok(!!s.metaTwitter["twitter:image"],
+       "twitter:image 存在（没有它 X 卡片是空壳）", String(s.metaTwitter["twitter:image"]));
+
+    /* H1：全页恰好一个、有文字、在 main 里。
+       ⚠️ 判「有没有 H1」不能只看标签存在 —— 空 H1 同样不合格。 */
+    ok(s.h1s.length === 1, "整页恰好一个 H1", "实测 " + s.h1s.length + " 个：" + JSON.stringify(s.h1s.map((h) => h.cls)));
+    ok(s.h1s.length === 1 && s.h1s[0].text.length > 0 && s.h1s[0].inMain,
+       "H1 有文字且在 main 内", JSON.stringify(s.h1s));
+
+    /* 地标结构：banner / navigation / main / contentinfo */
+    ok(s.landmarks.main === 1 && s.landmarks.footer === 1,
+       "main 与 footer 地标各一个", JSON.stringify(s.landmarks));
+    ok(s.landmarks.headerOutsideMain >= 1,
+       "有 banner 地标（header 且不在 main 里）", JSON.stringify(s.landmarks));
+    ok(s.landmarks.nav >= 1, "有 navigation 地标（nav）", JSON.stringify(s.landmarks));
+
+    /* 跳到主内容：存在 → 锚点有效 → 是 Tab 第一站 → 真能聚焦 → 聚焦时可见 */
+    ok(!!s.skipLink, "存在「跳到主内容」链接");
+    ok(!!s.skipLink && s.skipLink.href === "#main" && s.skipLink.targetExists,
+       "skip link 指向 #main 且该锚点真实存在",
+       s.skipLink ? s.skipLink.href + " target=" + s.skipLink.targetExists : "无");
+    ok(!!s.skipLink && s.skipLink.display !== "none" && s.skipLink.visibility !== "hidden",
+       "skip link 没有用 display:none / visibility:hidden 假藏（那样会拿不到焦点）",
+       s.skipLink ? s.skipLink.display + "/" + s.skipLink.visibility : "无");
+    ok(!!s.skipLink && s.skipLink.isFirstFocusable,
+       "skip link 是第一个可聚焦元素（键盘 Tab 第一站）",
+       s.skipLink ? "text=" + s.skipLink.text : "无");
+
+    /* 「平时藏 / 聚焦显」必须**等过渡跑完**再量。
+       ⚠️ 踩过的坑：CSS 是 transition: transform .15s，focus() 之后同步读
+          getBoundingClientRect 拿到的还是藏着的中间帧（top 仍是 -81），
+          会把一个正确的实现判成失败。等两段 300ms 再看。 */
+    const skipFocus = await ev(`(async () => {
+      const a = document.querySelector('.skip-link');
+      if (!a) return null;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      a.blur();
+      await wait(300);
+      const before = Math.round(a.getBoundingClientRect().top);
+      a.focus();
+      await wait(300);
+      const after = Math.round(a.getBoundingClientRect().top);
+      const gotFocus = document.activeElement === a;
+      a.blur();
+      return { before: before, after: after, gotFocus: gotFocus };
+    })()`);
+    ok(!!skipFocus && skipFocus.gotFocus,
+       "skip link 真能拿到焦点（focus() 后 activeElement 是它）",
+       JSON.stringify(skipFocus));
+    /* 平时移出视口（top < 0）、聚焦后回到视口内（top >= 0）—— 这一条同时
+       守住「藏得掉」和「聚焦时看得见」两个方向。 */
+    ok(!!skipFocus && skipFocus.before < 0 && skipFocus.after >= 0,
+       "skip link 平时藏在视口外、聚焦时出现在视口内",
+       skipFocus ? "top " + skipFocus.before + " → " + skipFocus.after : "无");
+
+    /* 给 .tools 包一层 header 不得改变它的定位 —— 这是本轮最大的一处布局风险，
+       实测判据要钉在「相对视口」而不是「看起来差不多」。 */
+    ok(!!s.toolsRect && s.toolsRect.pos === "fixed" &&
+       s.toolsRect.left === 18 && s.toolsRect.top === 18 && s.toolsRect.rightGap === 18 &&
+       s.toolsRect.rightTop === 18,
+       "顶部控件仍固定在视口左右/上各 18px（header 包裹没把它变成包含块）",
+       JSON.stringify(s.toolsRect));
+
+    /* robots.txt / sitemap.xml：同源 fetch，走页面自己的网络栈。
+       ⚠️ 页面内脚本里**不写正则** —— SNAPSHOT/ev 都过模板字符串，反斜杠会被吞；
+          这里只把响应体带回来，匹配全部在 Node 侧做。 */
+    const seoFiles = await ev(`(async () => {
+      const out = {};
+      const names = ['/robots.txt', '/sitemap.xml'];
+      for (const name of names) {
+        try {
+          const res = await fetch(name, { cache: 'no-store' });
+          const body = await res.text();
+          out[name] = {
+            status: res.status,
+            cc: res.headers.get('cache-control'),
+            len: body.length,
+            head: body.slice(0, 600),
+          };
+        } catch (e) {
+          out[name] = { status: 0, err: String(e).slice(0, 140) };
+        }
+      }
+      return out;
+    })()`);
+    const robotsTxt = seoFiles["/robots.txt"] || {};
+    const sitemapXml = seoFiles["/sitemap.xml"] || {};
+    ok(robotsTxt.status === 200, "robots.txt 返回 200", JSON.stringify(robotsTxt).slice(0, 200));
+    ok(/Sitemap:\s*https:\/\/universe\.qxt1me\.dpdns\.org\/sitemap\.xml/.test(robotsTxt.head || ""),
+       "robots.txt 里声明了本站的 sitemap", String(robotsTxt.head || "").slice(0, 120));
+    ok(sitemapXml.status === 200, "sitemap.xml 返回 200", JSON.stringify(sitemapXml).slice(0, 200));
+    ok(/<loc>https:\/\/universe\.qxt1me\.dpdns\.org\/<\/loc>/.test(sitemapXml.head || ""),
+       "sitemap.xml 里含本站唯一 URL", String(sitemapXml.head || "").slice(0, 160));
+    /* 缓存头只在线上有意义：本地 python -m http.server 不读 _headers，
+       取不到就如实写「跳过」，不假装通过也不误判为失败。 */
+    ok(!robotsTxt.cc || /max-age=3600/.test(robotsTxt.cc),
+       "robots.txt 缓存 1 小时（本地静态服务不读 _headers 时跳过）",
+       robotsTxt.cc || "本地无 cache-control → 跳过");
+    ok(!sitemapXml.cc || /max-age=3600/.test(sitemapXml.cc),
+       "sitemap.xml 缓存 1 小时（同上）",
+       sitemapXml.cc || "本地无 cache-control → 跳过");
+
+    /* ============ 14. 手机视口：横向不溢出 ============ */
     await send("Emulation.setDeviceMetricsOverride", {
       width: 390,
       height: 844,

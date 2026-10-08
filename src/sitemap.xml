@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- universe 只有一个可索引的 URL：导航站本身不承载内容，
+     子站各有自己的域名与 sitemap，不在这里重复列。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://universe.qxt1me.dpdns.org/</loc>
+    <lastmod>2026-10-08</lastmod>
+  </url>
+</urlset>

@@ -1,0 +1,6 @@
+# universe · 憩想 —— 站群总入口
+# 本站是单页导航，没有需要屏蔽的目录（与 blog 不同：blog 有 ?owner=1 的访客态参数）。
+User-agent: *
+Allow: /
+
+Sitemap: https://universe.qxt1me.dpdns.org/sitemap.xml

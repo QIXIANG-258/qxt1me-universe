@@ -38,6 +38,16 @@
 /js/*
   Cache-Control: public, max-age=300
 
+# robots.txt / sitemap.xml（2026-10-08 补）—— 与 canonical / OG 一同落地。
+# 这两个文件**会随每次改版重写**（sitemap 有 lastmod，robots 可能加新规则），
+# 且文件名不带内容指纹 —— 所以**不能 immutable**。
+# 给 1 小时：与 blog 的同名规则同口径。抓取器不在乎晚一小时看到改动。
+/robots.txt
+  Cache-Control: public, max-age=3600
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+
 # 说明：index.html / 404.html 故意**不写规则** ——
 # 它们落 Cloudflare 默认的 `public, max-age=0, must-revalidate`，
 # 即「每次回源校验」，这正是 HTML 想要的语义（改版立刻生效）。

@@ -1072,6 +1072,57 @@ html[lang="en"] .foot-name {
   letter-spacing: .02em;
 }
 
+/* ---------------------------------------------------------
+   无障碍两件套（2026-10-08 补）：跳到主内容 + 仅供读屏的文本。
+   --------------------------------------------------------- */
+
+/* 「跳到主内容」：Tab 第一站。
+   ⚠️ 藏法必须用 transform/裁剪，**不能用 display:none 或 visibility:hidden**
+      —— 那两种都会把它移出可聚焦树，等于没有这个链接（这是最常见的假实现）。
+   聚焦时滑回左上角，做成一块与 .tool-btn 同语言的实体按钮。 */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 30;
+  padding: 10px 14px;
+  font-family: var(--f-cn);
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-2-rgb));
+  border: 1px solid rgba(var(--line-rgb), .3);
+  border-radius: var(--r);
+  text-decoration: none;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .45);
+  transform: translateY(-200%);
+  transition: transform .15s var(--ease);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 1px solid rgba(var(--line-rgb), .5);
+  outline-offset: 2px;
+}
+
+/* 仅供读屏的文本（页面 H1 用）。
+   标准 visually-hidden：1px 盒 + 裁掉 —— 仍在可访问树里、仍能被读屏朗读，
+   但占不到视觉空间。**不要**改成 color:transparent 或 font-size:0：
+   前者在浅色态下仍可能露字，后者在部分读屏里会被当成不可读内容跳过。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 右上角主题/语言小按钮（与 blog 同位置、同尺寸感） */
 /* 顶部工具条：**左右两个分区**（2026-10-07）
      左上 .tools-left  → 「关于」按钮（点开弹窗）
