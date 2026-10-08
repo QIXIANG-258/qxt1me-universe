@@ -91,7 +91,11 @@ const ok = (c, label, extra) =>
     qq: !!document.querySelector('.foot-contact [data-copy]'),
     mail: !!document.querySelector('.foot-contact a[href^="mailto:"]'),
     githubInBody: document.body.textContent.indexOf('QIXIANG-258') !== -1,
-    pexelsGone: document.body.textContent.indexOf('Pexels') === -1
+    /* 只查**联系方式区**里有没有 Pexels（收窄后的口径，见下面的说明） */
+    pexelsGoneFromContact: (function () {
+      var f = document.querySelector('.foot-contact');
+      return !f || f.textContent.indexOf('Pexels') === -1;
+    })()
   })`);
   ok(dom.clock, "时钟在");
   ok(dom.search, "搜索框在");
@@ -104,7 +108,11 @@ const ok = (c, label, extra) =>
   /* Github 图标是 SVG（没有文字），所以正文文本里不该出现用户名 ——
      它作为图标 + aria-label 存在。 */
   ok(!dom.githubInBody, "Github 不以文字形式出现在正文（是图标）");
-  ok(dom.pexelsGone, "Pexels 已移除");
+  /* ⚠️ 2026-10-08 更正：原来这条写的是「Pexels 已移除」（全页文本不含 Pexels）。
+     作者澄清：2026-10-07 移除的是**他的 Pexels 个人主页**（当时挂在联系方式里），
+     与本次新增「外站」板块里的 **Pexels 网站主页**不是一回事。
+     所以判据收窄到「**联系方式里**没有 Pexels」—— 那才是当初要守的东西。 */
+  ok(dom.pexelsGoneFromContact, "联系方式里没有 Pexels（当初移除的是个人主页）");
 
   /* ---------- A2. 第二轮改动的守卫 ---------- */
   const v2 = await ev(`(() => {

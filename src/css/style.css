@@ -590,7 +590,9 @@ html[data-theme="light"] .scene-glow {
 /* 版心：原版 main 直接 flex 居中、无最大宽度下限，窄屏会把卡片挤扁。
    ★ 2026-10-07 收回**单栏**（「关于本站」改成左上角弹窗、
      「联系方式」挪进页脚，所以 main 里只剩「站点」）。
-     窄栏里放不下「站名 + 域名」并排，所以条目是两行堆叠（见 .container a）。 */
+     窄栏里放不下「站名 + 域名」并排，所以条目是两行堆叠（见 .container a）。
+   ★ 2026-10-08 加了「外站」板块，两个卡片**并列**——版心随之放宽到 46em
+     （单卡片内容没变宽，是多了右边那块）。窄屏仍折成上下堆叠。 */
 main {
   display: flex;
   flex-direction: column;
@@ -598,10 +600,29 @@ main {
   align-items: stretch;
   gap: 1.4em;
   margin-top: 3em;
-  max-width: 30em;
+  max-width: 46em;
   margin-inline: auto;
   padding-inline: var(--pad);
 }
+
+/* 两个板块并列：等宽两列，各自内部仍是纵向链接列表。
+   ⚠️ 用 grid 而不是 flex —— flex 下两个 .container 的内容长度不一（站点 3 条 / 外站 4 条），
+      卡片高度会被内容撑得不一样，看起来一高一低。grid 的 stretch（默认）让同一行的
+      两格等高，视觉上才是「一对」。
+   ⚠️ minmax(0,1fr) 而不是 1fr：1fr 的最小尺寸是 auto，长域名会把列顶宽、撑出横向滚动
+      （本项目在别处踩过一次，见 .lb-bottom 的同类处理）。 */
+.boards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.4em;
+  align-items: stretch;
+}
+
+/* 外站卡片：沿用 .container 的版式（同一套卡片语言），
+   标题色改成次级明度，与「站点」那块形成主次区分。 */
+.ext-container h2 { color: rgb(var(--fg-rgb)); opacity: .82; }
+/* 外站条目的第二行是**说明**而不是域名，字号略收一点，避免误读成网址 */
+.ext-container a .hint { letter-spacing: .04em; }
 
 /* ---------------------------------------------------------
    时钟 —— 原版 5rem 无衬线。这里换成衬线 QX Serif，
@@ -1253,6 +1274,12 @@ html[lang="en"] .foot-name {
     align-items: stretch;
     gap: 1.2em;
     margin-top: 2em;
+  }
+
+  /* 两个板块在窄屏折成上下堆叠（并排会各自只剩 ~150px，站名要竖排） */
+  .boards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.2em;
   }
 
   .container {

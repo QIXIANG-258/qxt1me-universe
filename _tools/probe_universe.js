@@ -218,12 +218,25 @@ const SNAPSHOT = `(() => {
      ⚠️ 2026-10-07 加了「联系方式」栏后，原来的 .container a 会把
         mailto / github / pexels 也算进来 —— 那三条是**正当的外链**
         （联系方式本来就该指向站外），却会被「无臆造外链」判据判成假红。
-        所以这里收窄到 .social-container。 */
-  const links = [...document.querySelectorAll('.social-container a')].map(a => a.getAttribute('href'));
+        所以这里收窄到 .social-container。
+     ⚠️ 2026-10-08 加了「外站」板块后，它也用 .social-container（复用了版式），
+        所以再排除 .ext-container —— 否则外站那 4 条会被「无臆造外链」判假红。 */
+  const links = [...document.querySelectorAll('.social-container:not(.ext-container) a')]
+    .map(a => a.getAttribute('href'));
+  /* 外站板块单独取样：验「确实是站外 + 新窗口 + noopener」 */
+  const extAs = [...document.querySelectorAll('.ext-container a')];
+  const extLinks = extAs.map(a => a.getAttribute('href'));
+  const extTargets = {
+    n: extAs.length,
+    allBlank: extAs.length > 0 && extAs.every(a => a.getAttribute('target') === '_blank'),
+    allNoopener: extAs.length > 0 && (extAs.every(a => /(^|\\s)noopener(\\s|$)/.test(a.getAttribute('rel') || ''))),
+  };
   /* 联系方式栏的链接单独取样（判据里确认它们存在、且确实是外链） */
   const contactLinks = [...document.querySelectorAll('.contact-a')].map(a => a.getAttribute('href'));
-  /* 三栏容器数（判据里验布局形态） */
-  const containerCount = document.querySelectorAll('main > .container').length;
+  /* 卡片数（判据里验布局形态）。
+     ⚠️ 2026-10-08 两个卡片被 .boards 包了一层，不再是 main 的直接子元素 ——
+        原来的 'main > .container' 会数成 0。改成按 main 内整体数 .container。 */
+  const containerCount = document.querySelectorAll('main .container').length;
   return {
     htmlTheme: document.documentElement.getAttribute('data-theme'),
     htmlLang: document.documentElement.lang,
@@ -273,6 +286,11 @@ const SNAPSHOT = `(() => {
     hiddenOutsideHints: hiddenOutsideHints,
 
     hrefs: links,
+    /* 「站点」卡片内的链接（判据 §6 的「无臆造外链」只扫这一组） */
+    siteCardHrefs: links,
+    /* 「外站」卡片（2026-10-08 新增） */
+    extHrefs: extLinks,
+    extTargets: extTargets,
     contactLinks: contactLinks,
     containerCount: containerCount,
     /* 指向站群之外的所有链接（判据 §6 用）。
@@ -560,23 +578,109 @@ const SNAPSHOT = `(() => {
        `${s.hiddenIcons} 个隐藏 / ${s.hiddenOutsideHints} 个在别处`);
     ok(s.cardRect && s.cardRect.y > 100 && s.cardRect.y < 700,
        "站点栏落在首屏内", JSON.stringify(s.cardRect));
-    /* 布局形态：2026-10-07 定稿为**单栏**（只有「站点」）。
-       「关于本站」改成左上角弹窗、「联系方式」挪进页脚，
-       所以这里验「只有 1 栏」+「弹窗与页脚联系方式都在」。 */
-    ok(s.containerCount === 1, "主区是单栏（只剩「站点」）",
+    /* 布局形态：2026-10-07 是**单栏**（只有「站点」）；
+       2026-10-08 加了「外站」，定稿为**并列两栏**。
+       所以这里验「恰好 2 个板块」+「两块等高并排」，
+       而不是原来那句「主区是单栏」——那条已被本轮的改动取代。 */
+    ok(s.containerCount === 2, "主区恰好两个板块（站点 + 外站）",
        `${s.containerCount} 栏`);
-    ok(s.cardRect && s.cardRect.w > 300,
-       "站点栏撑开（单栏占版心）",
+    /* 两块应当等高（grid 同一行 stretch 的效果）——差太多说明一高一低很难看 */
+    const boardGeom = await ev(`(() => {
+      const bs = [...document.querySelectorAll('.boards > .container')];
+      if (bs.length !== 2) return { n: bs.length };
+      const r = bs.map(b => b.getBoundingClientRect());
+      return { n: 2, w0: Math.round(r[0].width), w1: Math.round(r[1].width),
+               h0: Math.round(r[0].height), h1: Math.round(r[1].height),
+               sameRow: Math.abs(r[0].top - r[1].top) < 4,
+               leftFirst: r[0].left < r[1].left };
+    })()`);
+    ok(boardGeom.n === 2 && boardGeom.sameRow,
+       "两个板块在同一行并排（不是上下堆叠）", JSON.stringify(boardGeom));
+    ok(boardGeom.n === 2 && Math.abs(boardGeom.w0 - boardGeom.w1) <= 2,
+       "两个板块等宽", `w ${boardGeom.w0} vs ${boardGeom.w1}`);
+    ok(boardGeom.n === 2 && Math.abs(boardGeom.h0 - boardGeom.h1) <= 2,
+       "两个板块等高（grid stretch；否则一高一低）", `h ${boardGeom.h0} vs ${boardGeom.h1}`);
+    /* 单块宽度：两栏并列后每块约版心一半（46em 的一半 ≈ 340px @16px 根字号）。
+       阈值取 280 而不是原来的 300 —— 并列本来就比单栏窄，
+       这里要守的是「没被挤成竖排」而不是「够宽」。 */
+    ok(s.cardRect && s.cardRect.w >= 280,
+       "站点栏宽度正常（并列两栏下未被挤塌）",
        `宽 ${s.cardRect && s.cardRect.w}px`);
 
     /* ============ 6. 内容守卫：不臆造深链、不重复列同一站 ============ */
     /* ★ 断言从「全部指向 blog 域」放宽为「全部指向本站群自己的域」——
        原来只有 blog 一个子站，现在加了 gear-search，旧断言会假红。
-       真正要守的是：**不臆造指向站外的深链**。 */
+       真正要守的是：**不臆造指向站外的深链**。
+       ★ 2026-10-08 再加「外站」板块后，本条**必须限定在「站点」卡片内**：
+         外站板块的存在意义就是指向站外，把它算进来会立刻假红。
+         这里改成只扫 `.social-container:not(.ext-container)` 里的链接
+         （s.hrefs 是整页链接，不适合本条了；见下面 s.siteCardHrefs）。 */
     const OWN_DOMAINS = /^https:\/\/([a-z0-9-]+\.)?qxt1me\.dpdns\.org(\/|$)/;
-    const strays = s.hrefs.filter((h) => h && !OWN_DOMAINS.test(h));
-    ok(strays.length === 0, "所有子站链接都指向本站群自己的域名（无臆造外链）",
+    const strays = s.siteCardHrefs.filter((h) => h && !OWN_DOMAINS.test(h));
+    ok(strays.length === 0, "「站点」卡片里的链接都指向本站群自己的域名（无臆造外链）",
        JSON.stringify(strays));
+    /* ★ 外站板块的链接必须**确实指向站外** —— 反向守一遍：
+       别把本站群的站误放进「外站」（那就重复列了），也别写成空/相对链接。 */
+    const extBad = s.extHrefs.filter((h) => !h || !/^https:\/\//.test(h) || OWN_DOMAINS.test(h));
+    ok(extBad.length === 0, "「外站」卡片里的链接都是站外绝对 https 地址（不含本站群）",
+       JSON.stringify(extBad));
+    /* 外站一律新窗口打开 + rel=noopener（跨站跳转防止 window.opener 被利用） */
+    ok(s.extTargets.allBlank && s.extTargets.allNoopener,
+       "「外站」链接都 target=_blank 且 rel=noopener",
+       JSON.stringify(s.extTargets));
+    /* ★ 「外站」板块的结构：是个 landmark（nav）、有 H2 标题、四条链接、
+       每条都有图标 + 站名 + 说明（说明用官方名之外的短注，可读性靠它）。 */
+    const ext = await ev(`(() => {
+      const nav = document.querySelector('.ext-container');
+      if (!nav) return null;
+      const h2 = nav.querySelector('h2');
+      const as = [...nav.querySelectorAll('a')];
+      return {
+        isNav: nav.tagName === 'NAV',
+        hasH2: !!h2 && (h2.textContent || '').trim().length > 0,
+        labelled: nav.getAttribute('aria-labelledby') === (h2 && h2.id),
+        n: as.length,
+        eachHasIcon: as.every(a => !!a.querySelector('.ico svg')),
+        eachHasLabel: as.every(a => {
+          const spans = [...a.querySelectorAll('span')];
+          return spans.some(s => (s.textContent || '').trim().length > 0 && !s.classList.contains('hint'));
+        }),
+        eachHasHint: as.every(a => !!a.querySelector('.hint')),
+        names: as.map(a => (a.querySelector('span:not(.hint)') || {}).textContent || ''),
+      };
+    })()`);
+    ok(!!ext && ext.isNav,
+       "「外站」是独立板块且用 nav 地标（可被读屏当导航）", JSON.stringify(ext && ext.isNav));
+    ok(!!ext && ext.hasH2 && ext.labelled,
+       "「外站」板块有 H2 标题且与 nav 的 aria-labelledby 对应",
+       JSON.stringify(ext && { hasH2: ext.hasH2, labelled: ext.labelled }));
+    ok(!!ext && ext.n === 4, "「外站」板块有 4 条链接", "实测 " + (ext && ext.n) + " 条");
+    ok(!!ext && ext.eachHasIcon && ext.eachHasLabel && ext.eachHasHint,
+       "「外站」每条都有图标 + 站名 + 说明",
+       JSON.stringify(ext && { i: ext.eachHasIcon, l: ext.eachHasLabel, h: ext.eachHasHint }));
+    /* 站名用官方名，不翻译（作者 2026-10-08 明确）——
+       顺手钉住这四个名字，防止以后被"顺手翻译"掉。 */
+    const EXPECT_EXT = ['WorldVectorLogo', 'xicons', 'Pexels', 'SearchGal'];
+    const gotNames = (ext && ext.names || []).map(s => s.trim());
+    ok(EXPECT_EXT.every((n) => gotNames.includes(n)),
+       "「外站」站名用各家官方名称（不翻译）",
+       "期望 " + JSON.stringify(EXPECT_EXT) + " 实得 " + JSON.stringify(gotNames));
+    /* ★ 「外站」的标题与说明行必须**双语**（本站走 data-zh/data-en）。
+       曾经漏给 hint 加 data-* —— 切到英文后那四行仍是中文，
+       而页面上其它文字全翻了，一眼就能看出来是漏了。 */
+    const extI18n = await ev(`(() => {
+      const nav = document.querySelector('.ext-container');
+      if (!nav) return null;
+      const need = [...nav.querySelectorAll('h2 span, a .hint')];
+      return {
+        total: need.length,
+        missing: need.filter(e => !e.getAttribute('data-zh') || !e.getAttribute('data-en'))
+                     .map(e => (e.textContent || '').trim().slice(0, 20)),
+      };
+    })()`);
+    ok(!!extI18n && extI18n.total > 0 && extI18n.missing.length === 0,
+       "「外站」标题与说明行都有 data-zh/data-en（切英文不会留中文）",
+       JSON.stringify(extI18n));
     /* .soon 只在有未上线站时存在 */
     if (s.soonExists) {
       ok(s.soonIsLink === false, "未上线的站是不可点的，不是死链");
@@ -585,11 +689,18 @@ const SNAPSHOT = `(() => {
     }
     /* ★ 守卫「一个站只出现一次」：universe 是站群入口，
        同一个 URL 不该在页面上出现两次 —— 曾经有 影集/延时/闲聊/每日颜色/
-       关于我/音乐/联系 七条全指向 blog 首页。加第二个站时这条依然成立。 */
-    const uniqHrefs = [...new Set(s.hrefs)];
-    ok(uniqHrefs.length === s.hrefs.length,
-       "同一站不在页面上重复出现（一个站只列一次）",
-       `${s.hrefs.length} 条链接 / ${uniqHrefs.length} 个不同地址`);
+       关于我/音乐/联系 七条全指向 blog 首页。加第二个站时这条依然成立。
+       ⚠️ 2026-10-08 加了「外站」板块后，本条只在**「站点」卡片内**比对：
+          外站是另一类内容，不参与「本站群一个站只列一次」的约束。 */
+    const uniqHrefs = [...new Set(s.siteCardHrefs)];
+    ok(uniqHrefs.length === s.siteCardHrefs.length,
+       "「站点」卡片里同一站不重复出现（一个站只列一次）",
+       `${s.siteCardHrefs.length} 条链接 / ${uniqHrefs.length} 个不同地址`);
+    /* 外站板块同样不该把同一条列两次（复制粘贴时最容易犯） */
+    const uniqExt = [...new Set(s.extHrefs)];
+    ok(uniqExt.length === s.extHrefs.length,
+       "「外站」卡片里没有重复地址",
+       `${s.extHrefs.length} 条 / ${uniqExt.length} 个不同地址`);
 
     /* ★ 联系方式（2026-10-07 定稿：**在页脚**，**只留 QQ + Gmail**）。
        作者看图后明确要求去掉 Github / Pexels，所以这里也反着验一遍 ——
@@ -607,12 +718,13 @@ const SNAPSHOT = `(() => {
                 return e ? e.textContent.trim() : null; })()`);
     ok(mailTxt && mailTxt.includes("@") && mailTxt.includes(".") && !mailTxt.includes("…"),
        "邮箱地址完整显示（没有被省略号截断）", mailTxt);
-    /* 反向守卫：Github / Pexels 应当**不在**页面上 */
-    const noExtra = await ev(`(() => {
-      const t = document.body.textContent;
-      return { gh: t.indexOf('QIXIANG-258') === -1, px: t.indexOf('Pexels') === -1 }; })()`);
-    ok(noExtra.gh && noExtra.px, "Github / Pexels 已按作者要求移除",
-       JSON.stringify(noExtra));
+    /* 反向守卫：Github 应当**不在**页面上（2026-10-07 移到右上角工具条）。
+       ⚠️ 2026-10-08 更正：原来这里还连 Pexels 一起守（「按作者要求移除」）——
+          作者澄清当时移除的是**他的 Pexels 个人主页**，与本次新增的
+          **Pexels 网站主页**（外站板块里那条）不是一回事，故 Pexels 的守卫去掉。
+          只留 Github 那半边（它确实还在工具条里，不在正文中）。 */
+    const noGh = await ev(`document.body.textContent.indexOf('QIXIANG-258') === -1`);
+    ok(noGh, "Github 用户名不在正文里（已移到右上角工具条）");
 
     /* ★ 「关于本站」现在是**左上角按钮 + 弹窗**（不再是页面里的栏）。
        验：按钮在、弹窗在、初始隐藏、文案非空。 */

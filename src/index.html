@@ -161,13 +161,14 @@
            「站点」仍是 H2，于是层级是 H1（页面名）→ H2（板块名），不跳级。 -->
       <h1 class="sr-only" data-zh="universe · 憩想 — 个人站群总入口" data-en="universe · Qi Xiang — entry to my sites">universe · 憩想 — 个人站群总入口</h1>
 
-      <!-- 单栏：universe 的职责是「指到哪个站」。
-           2026-10-07：「关于本站」改成左上角弹窗、「联系方式」挪进页脚，
-           所以这里只剩站点栏。
+      <!-- 两个板块**并列**（2026-10-08）：左「站点」（我的站）／右「外站」（常去的外站）。
+           包一层 .boards 做横向排列；窄屏由 CSS 折成上下堆叠。
+           2026-10-07：「关于本站」改成左上角弹窗、「联系方式」挪进页脚。
            2026-10-08：容器由 div 改成 nav（补 navigation 地标）—— **类名不变**，
            所以 CSS 的 .container / .social-container 与探针的选择器全部照旧命中。
            用 aria-labelledby 指向自己的 H2（「站点 / Sites」）：标签跟着语言切换，
            写死 aria-label 反而不会翻。 -->
+      <div class="boards">
       <nav class="container social-container" aria-labelledby="sitesTitle">
         <h2 id="sitesTitle">
           <i class="ico" aria-hidden="true">
@@ -207,6 +208,49 @@
           <span class="weather-city" id="weatherCity"></span>
         </div>
       </nav>
+
+      <!-- 外站（2026-10-08 作者要求新增）——
+           与上面的「站点」**并列**成第二个板块：那个是「我的站」，这个是「我常去的外站」。
+           复用 .container 的版式（同一套卡片语言），但另给 .ext-container 类便于单独调。
+           ⚠️ 外链一律 target="_blank" + rel="noopener"（跨站跳转要防止 window.opener 被利用）。
+           ⚠️ 站名用各家**官方名称**，不翻译（作者 2026-10-08 明确）。 -->
+      <nav class="container social-container ext-container" aria-labelledby="extTitle">
+        <h2 id="extTitle">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="M19.5 4.5L11 13"/><path d="M18 14.5v4a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 014 18.5v-11A1.5 1.5 0 015.5 6h4"/></svg>
+          </i>
+          <span data-zh="外站" data-en="Elsewhere">外站</span>
+        </h2>
+        <a href="https://worldvectorlogo.com/" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M3.5 12h17"/><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </i>
+          <span>WorldVectorLogo</span>
+          <span class="hint" data-zh="世界矢量 Logo 库" data-en="World vector logo library">世界矢量 Logo 库</span>
+        </a>
+        <a href="https://www.xicons.org/" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+          </i>
+          <span>xicons</span>
+          <span class="hint" data-zh="Vue / React 图标库" data-en="Icons for Vue &amp; React">Vue / React 图标库</span>
+        </a>
+        <a href="https://www.pexels.com/" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M3.5 17l4.5-4 3.5 3 3.5-3.5L20.5 17"/></svg>
+          </i>
+          <span>Pexels</span>
+          <span class="hint" data-zh="免费图库" data-en="Free stock photos">免费图库</span>
+        </a>
+        <a href="https://www.searchgal.top/" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20.5 20.5"/></svg>
+          </i>
+          <span>SearchGal</span>
+          <span class="hint" data-zh="Galgame 聚合搜索" data-en="Galgame search engine">Galgame 聚合搜索</span>
+        </a>
+      </nav>
+      </div>
     </main>
 
     <!-- 页脚：落款 + 联系方式，**融为一体**（无分割线、无说明文字）。
