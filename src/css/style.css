@@ -967,18 +967,29 @@ main {
 }
 
 /* ---------------------------------------------------------
-   天气（「站点」卡片内，2026-10-07）
+   天气（★ 2026-10-08 从「站点」卡片内**移到时钟下方**）
    数据来自 Open-Meteo（免费、无需 key）；定位优先、失败落成都。
    ★ 未取到数据时整个块 hidden，不占位、不显示 «--»
      （宁可没有，也不要一个「--°」的空壳）。
+
+   为什么移：作者反馈放在卡片里与站点列表**不和谐** —— 那栏里其它项都是
+   **可点的站**，它是唯一不可点的环境信息，混在一起确实是异类。
+   放时钟下方后与日期同属「此刻的环境」，语义连贯。
+   ⚠️ 另一个候选位置「左上角」**实测手机放不下**：390px 视口下
+      「关于」右缘到右上控件左缘只剩 112px，而天气自然宽 303px。
+
+   移过来后三条样式跟着改（原写法是为卡片行设计的）：
+     · 去掉 border-top 分隔线（不再需要与上一条目分隔）
+     · 居中 + 收窄 margin-top（跟着日期，与 .clock-date 同一视觉轴）
+     · 城市名去掉 margin-left:auto —— 那是为把城市名推到卡片右缘而写的；
+       在 flex 居中里它会把城市名推离温度，改成普通间距自然跟随。
    --------------------------------------------------------- */
 .weather {
   display: flex;
   align-items: center;
-  gap: .55em;
-  margin-top: .9em;
-  padding: .7em .8em 0;
-  border-top: 1px solid rgba(var(--line-rgb), .07);
+  justify-content: center;
+  gap: .5em;
+  margin-top: .55em;
   font-size: .88rem;
   letter-spacing: .03em;
   color: rgb(var(--fg-alt-rgb));
@@ -999,7 +1010,6 @@ main {
 }
 
 .weather-city {
-  margin-left: auto;
   font-size: .78rem;
   letter-spacing: .08em;
   color: rgb(var(--fg-weak-rgb));

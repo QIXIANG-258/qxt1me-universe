@@ -681,6 +681,66 @@ const SNAPSHOT = `(() => {
     ok(!!extI18n && extI18n.total > 0 && extI18n.missing.length === 0,
        "「外站」标题与说明行都有 data-zh/data-en（切英文不会留中文）",
        JSON.stringify(extI18n));
+
+    /* ★ 天气的位置（2026-10-08 从「站点」卡片内移到**时钟下方**）。
+       作者反馈原来放在卡片里**不和谐** —— 那栏里其它项都是可点的站，
+       它是唯一不可点的环境信息，混在一起是异类。
+       这里钉住三件事，防止以后被"顺手挪回卡片"：
+         ① 不在「站点」卡片内
+         ② 水平居中（与时钟/日期同一视觉轴）
+         ③ 紧跟日期、且没压到搜索框
+       ⚠️ 天气在本地/无网络时是 hidden，量不到尺寸 —— 这里临时填内容再量，
+          量完立刻还原（不改文件、不影响后续判据）。
+       ⚠️ 另一个候选位置「左上角」实测手机放不下（可用仅 112px，天气自然宽 303px），
+          所以本条也顺手守住「它不在 .tools 里」。 */
+    const wx = await ev(`(function(){
+      var b = document.getElementById('weather');
+      if (!b) return { missing: true };
+      var wasHidden = b.hidden;
+      var tp = document.getElementById('weatherTemp'), ct = document.getElementById('weatherCity');
+      var t0 = tp ? tp.textContent : '', c0 = ct ? ct.textContent : '';
+      /* 临时填内容以便量几何（只为量，不写盘） */
+      if (tp && !tp.textContent) tp.textContent = '23°';
+      if (ct && !ct.textContent) ct.textContent = '成都 · 晴';
+      b.hidden = false;
+      var r = b.getBoundingClientRect();
+      var cs = getComputedStyle(b);
+      var dateR = document.querySelector('.clock-date').getBoundingClientRect();
+      var sr = document.querySelector('.search').getBoundingClientRect();
+      var inSiteCard = !!document.querySelector('.social-container:not(.ext-container) #weather');
+      var inTools = !!b.closest('.tools');
+      var out = {
+        cx: Math.round(r.left + r.width / 2), vw: innerWidth,
+        borderTop: cs.borderTopWidth,
+        gapFromDate: Math.round(r.top - dateR.bottom),
+        gapToSearch: Math.round(sr.top - r.bottom),
+        inSiteCard: inSiteCard, inTools: inTools,
+        inClock: !!b.closest('.clock')
+      };
+      /* 还原 */
+      b.hidden = wasHidden;
+      if (tp) tp.textContent = t0;
+      if (ct) ct.textContent = c0;
+      return out;
+    })()`);
+    ok(wx && !wx.missing, "天气元素存在", JSON.stringify(wx));
+    ok(wx && wx.inSiteCard === false,
+       "天气不在「站点」卡片内（不再与站点列表混在一起）",
+       "inSiteCard=" + (wx && wx.inSiteCard));
+    ok(wx && wx.inClock === true,
+       "天气在时钟区块内（跟在日期下方）", "inClock=" + (wx && wx.inClock));
+    ok(wx && wx.inTools === false,
+       "天气不在左上角控件区（实测窄屏放不下，仅 112px 可用）",
+       "inTools=" + (wx && wx.inTools));
+    ok(wx && Math.abs(wx.cx - wx.vw / 2) <= 2,
+       "天气水平居中（与时钟同一视觉轴）",
+       "中心 " + (wx && wx.cx) + " vs " + (wx && wx.vw) + "/2");
+    ok(wx && wx.borderTop === "0px",
+       "天气没有 border-top（不再冒充卡片条目）", "borderTop=" + (wx && wx.borderTop));
+    ok(wx && wx.gapFromDate >= 0 && wx.gapFromDate <= 20,
+       "天气紧跟日期（间距合理）", "gap=" + (wx && wx.gapFromDate) + "px");
+    ok(wx && wx.gapToSearch >= 0,
+       "天气没有压到搜索框", "gap=" + (wx && wx.gapToSearch) + "px");
     /* .soon 只在有未上线站时存在 */
     if (s.soonExists) {
       ok(s.soonIsLink === false, "未上线的站是不可点的，不是死链");
@@ -827,22 +887,51 @@ const SNAPSHOT = `(() => {
     ok(exceptions.length === 0, "无未捕获 JS 异常", exceptions.slice(0, 2).join(" | "));
 
     /* ============ 10. 悬停：铺反色块 ============ */
+    /* ⚠️ 2026-10-08 改成用 CSS.forcePseudoState **强制 :hover**，不再发合成鼠标事件。
+       原因（实测定位，不是猜）：headless Edge 里 `Input.dispatchMouseEvent` 的
+       mouseMoved **不产生 :hover 状态** —— 逐一试过 ①bringToFront ②两段式轨迹
+       ③换坐标 ④显式 buttons:0，四种都拿到 `:hover=false`、`::before` 宽 0；
+       只有 `CSS.forcePseudoState([hover])` 能让 ::before 真正铺开（实测 239.5px）。
+       这解释了本条为何**偶发**假红（在同一台机上跑来跑去结果不一致）。
+       而本判据真正要验的是「**CSS 规则写对了**」——
+       强制伪类恰好是验这个的最确定手段，比模拟鼠标更贴近意图。
+       ⚠️ 用完必须清除 forcePseudoState，否则 :hover 会一直挂着污染后续判据
+          （后面要读静止态的颜色做对比）。 */
     await ev(
       `(() => { const a = document.querySelector('.container a'); a.scrollIntoView({block:'center',behavior:'instant'}); return 1; })()`
     );
     await sleep(150);
-    const box = await ev(`(() => {
-      const a = document.querySelector('.container a');
-      const r = a.getBoundingClientRect();
-      return { x: Math.round(r.left + r.width/2), y: Math.round(r.top + r.height/2) };
-    })()`);
-    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: box.x, y: box.y });
-    await sleep(420);
+    const hoverNode = await (async () => {
+      /* ⚠️ 本探针的 send() 已经把 CDP 消息拆到了 result 一层，
+         所以这里取 `doc.root.nodeId` 而不是 `doc.result.root.nodeId`。 */
+      const doc = await send("DOM.getDocument", {});
+      const q = await send("DOM.querySelector",
+        { nodeId: doc.root.nodeId, selector: ".container a" });
+      return q.nodeId;
+    })();
+    await send("CSS.enable", {});
+    await send("CSS.forcePseudoState",
+      { nodeId: hoverNode, forcedPseudoClasses: ["hover"] });
+    await sleep(250);   // 等 color / width 的过渡跑完
     const hover = await ev(`(() => {
       const a = document.querySelector('.container a');
       const before = getComputedStyle(a, '::before');
       return { color: getComputedStyle(a).color, beforeW: before.width, beforeBg: before.backgroundColor };
     })()`);
+    /* 立刻清掉强制态，避免 :hover 泄漏到后面的静止态判据 */
+    await send("CSS.forcePseudoState", { nodeId: hoverNode, forcedPseudoClasses: [] });
+    /* ⚠️ 清除后 color 仍有 transition 要跑完 —— 实测「清完立刻读」拿到的还是悬停色
+       rgb(15,15,15)，等一拍才回到静止色。这正是本项目反复踩的
+       「带 transition 的属性必须等到位再量」。
+       所以下面**轮询到目标静止色**再断言，不写死 sleep。 */
+    const wantHint = hexToTriplet(blog.dark.ink2).join(",");
+    let afterUnhover = null;
+    for (let i = 0; i < 40; i++) {                 // 最多 2s
+      afterUnhover = await ev(`getComputedStyle(document.querySelector('.container a .hint')).color`);
+      const got = parseRgb(afterUnhover);
+      if (got && got.join(",") === wantHint) break;
+      await sleep(50);
+    }
     const beforeW = parseFloat(hover.beforeW);
     const linkRgb = parseRgb(hover.color);
     const hlInk = hexToTriplet(blog.dark.bg);
@@ -850,15 +939,13 @@ const SNAPSHOT = `(() => {
     ok(linkRgb && linkRgb.join(",") === hlInk.join(","),
        "悬停文字转成反色（= blog --bg，与 ::selection 同一对）", hover.color + " / 底 " + hover.beforeBg);
 
-    /* ★ 把鼠标移开再继续：悬停会改 .hint 的颜色（转成 --hl-ink），
-       鼠标停着不走，后面切浅色时取到的就是「悬停态」而非静止态 ——
-       曾经因此把浅色 .hint 测成 rgb(255,255,255) 纯白，假红。
-       移到页面右下空白处（不在任何链接上）。 */
-    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5 });
-    await sleep(300);
-    const afterUnhover = await ev(`getComputedStyle(document.querySelector('.container a .hint')).color`);
+    /* ★ 悬停会改 .hint 的颜色（转成 --hl-ink）。上面用完强制 :hover 后
+       已立刻清掉，并轮询到静止色 —— 走到这里还不对就说明「粘住」了。
+       ⚠️ 本条不再依赖「把鼠标移开」：现在根本没用真实鼠标（见上面的说明），
+          静止态靠**清除强制伪类**保证。
+       历史上曾在浅色态把 .hint 测成纯白（悬停态粘着），故保留这条守卫。 */
     ok(parseRgb(afterUnhover) && parseRgb(afterUnhover).join(",") === hexToTriplet(blog.dark.ink2).join(","),
-       "鼠标移开后说明文字回到静止色（悬停态没有粘住）", afterUnhover);
+       "清除强制悬停后说明文字回到静止色（悬停态没有粘住）", afterUnhover);
 
     /* ---------- 截图：深色 ---------- */
     fs.mkdirSync(SHOT_DIR, { recursive: true });
@@ -1028,9 +1115,19 @@ const SNAPSHOT = `(() => {
        s.skipLink ? "text=" + s.skipLink.text : "无");
 
     /* 「平时藏 / 聚焦显」必须**等过渡跑完**再量。
-       ⚠️ 踩过的坑：CSS 是 transition: transform .15s，focus() 之后同步读
+       ⚠️ 踩过的坑①：CSS 是 transition: transform .15s，focus() 之后同步读
           getBoundingClientRect 拿到的还是藏着的中间帧（top 仍是 -81），
-          会把一个正确的实现判成失败。等两段 300ms 再看。 */
+          会把一个正确的实现判成失败。等两段 300ms 再看。
+       ⚠️ 踩过的坑②（2026-10-08 实测定位，更隐蔽）：headless 页面**未激活**时
+          `document.hasFocus() === false`，此时 `:focus` **根本不匹配** ——
+          即使 `document.activeElement` 已经是那个元素，transform 也不会归零，
+          于是「聚焦后出现在视口内」必假红。
+          实测：未 bringToFront → top -81（transform 仍 -89.5px）；
+                bringToFront 后 → top 8（transform 归零）。
+          所以这里**先 Page.bringToFront**，并把 hasFocus 一并记进 extra，
+          便于下次一眼分辨「真失败」还是「环境没激活」。 */
+    await send("Page.bringToFront", {});
+    await sleep(200);
     const skipFocus = await ev(`(async () => {
       const a = document.querySelector('.skip-link');
       if (!a) return null;
@@ -1042,9 +1139,13 @@ const SNAPSHOT = `(() => {
       await wait(300);
       const after = Math.round(a.getBoundingClientRect().top);
       const gotFocus = document.activeElement === a;
+      const docHasFocus = document.hasFocus();
       a.blur();
-      return { before: before, after: after, gotFocus: gotFocus };
+      return { before: before, after: after, gotFocus: gotFocus, docHasFocus: docHasFocus };
     })()`);
+    ok(!!skipFocus && skipFocus.docHasFocus,
+       "页面已激活（document.hasFocus —— :focus 生效的前提）",
+       "hasFocus=" + (skipFocus && skipFocus.docHasFocus));
     ok(!!skipFocus && skipFocus.gotFocus,
        "skip link 真能拿到焦点（focus() 后 activeElement 是它）",
        JSON.stringify(skipFocus));

@@ -113,6 +113,21 @@
         </i>
         <span id="clockDate"></span>
       </div>
+
+      <!-- 天气（Open-Meteo；访客定位优先，失败落到成都）。
+           ★ 2026-10-08 从「站点」卡片内**移到这里**：
+             作者反馈放在卡片里与站点列表不和谐 —— 那栏里其它项都是**可点的站**，
+             它是唯一不可点的环境信息，混在一起确实是异类。
+             放在时钟下方后与日期同属「此刻的环境」，语义连贯；
+             而且这里是居中流式布局，不需要边框/分隔线去"挂靠"。
+           ⚠️ 位置候选里也考虑过左上角，实测**手机放不下**：
+             390px 视口下「关于」右缘到右上控件左缘只剩 112px，
+             而天气自然宽 303px（图标 18 + 温度 + 城市 67）。故落在此处。 -->
+      <div class="weather" id="weather" hidden>
+        <i class="ico weather-ico" id="weatherIco" aria-hidden="true"></i>
+        <span class="weather-temp" id="weatherTemp"></span>
+        <span class="weather-city" id="weatherCity"></span>
+      </div>
     </div>
 
     <div class="search">
@@ -199,14 +214,6 @@
           <span data-zh="2048 小游戏" data-en="2048 Game">2048 小游戏</span>
           <span class="hint">2048.qxt1me.dpdns.org</span>
         </a>
-
-        <!-- 天气（Open-Meteo；访客定位优先，失败落到成都）——
-             放在「站点」卡片内，作者要求这个框里加天气显示。 -->
-        <div class="weather" id="weather" hidden>
-          <i class="ico weather-ico" id="weatherIco" aria-hidden="true"></i>
-          <span class="weather-temp" id="weatherTemp"></span>
-          <span class="weather-city" id="weatherCity"></span>
-        </div>
       </nav>
 
       <!-- 外站（2026-10-08 作者要求新增）——
