@@ -16,7 +16,19 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  # 🔴 2026-10-08 修：原来这里写的是 `geolocation=()` —— 那是**从 gear 抄过来的**，
+  #    而 gear / blog / 2048 三站都不需要定位，禁掉是对的；
+  #    本站是**唯一用定位的站**（天气「访客定位优先，失败落成都」），
+  #    于是这条把头自己的功能掐死了：浏览器**连授权弹窗都不会给**，
+  #    直接抛 "Geolocation has been disabled in this document by permissions policy"。
+  #    实测（注入「已授权 + 坐标」后仍失败）：
+  #      geolocation=()  → ok:false / disabled by permissions policy
+  #      不写该指令     → ok:true  / lat 30.573
+  #    也就是说这个头不改，天气永远只能显示兜底城市，用户自己的位置形同不存在。
+  #    修法：camera / microphone 继续禁（本站确实不用），geolocation 放开为 self。
+  #    ⚠️ 用 `geolocation=(self)` 而不是整条删掉 —— 显式限定只有本站能用，
+  #       比「不写」（= 默认 self 但语义靠默认值）更明确，也便于以后审计。
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self)
 
 # ↓ 以下是缓存策略，规则之间互不重叠
 

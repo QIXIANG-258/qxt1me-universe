@@ -1202,6 +1202,50 @@ const SNAPSHOT = `(() => {
        "sitemap.xml 缓存 1 小时（同上）",
        sitemapXml.cc || "本地无 cache-control → 跳过");
 
+    /* ============ 13.5 _headers 安全头（含 geolocation 策略）============
+       🔴 2026-10-08 补：本站此前**完全没有针对 _headers 的判据**，
+          所以「Permissions-Policy 把自家天气定位掐死」这个真 bug
+          在探针里是隐形的（线上功能退化、探针却全绿）。
+       两条：
+         ① 四个安全头都在（与 blog / gear 同款）
+         ② ★ Permissions-Policy 里 **geolocation 不能被禁**（不能是 `geolocation=()`）
+            —— 本站天气靠访客定位，禁掉等于功能报废。
+            实测过：`geolocation=()` → 浏览器连授权弹窗都不给，
+            抛 "disabled by permissions policy"，天气永远只显示兜底成都；
+            改成 `geolocation=(self)` → 正常拿到坐标并显示「当前位置」。
+       ⚠️ 用页面内 fetch 读头（与上面 seoFiles 同一套做法）；
+          本地 python -m http.server 不读 _headers，取不到就跳过并注明。 */
+    const homeHead = await ev(`(async () => {
+      try {
+        const res = await fetch('/', { cache: 'no-store' });
+        const h = {};
+        for (const n of ['x-content-type-options', 'referrer-policy',
+                         'x-frame-options', 'permissions-policy']) {
+          h[n] = res.headers.get(n);
+        }
+        return h;
+      } catch (e) { return { err: String(e).slice(0, 120) }; }
+    })()`);
+    if (homeHead && homeHead["permissions-policy"]) {
+      const pp = homeHead["permissions-policy"];
+      for (const n of ["x-content-type-options", "referrer-policy", "x-frame-options"]) {
+        ok(!!homeHead[n], "安全头 " + n + " 存在", homeHead[n] || "缺失");
+      }
+      /* ★ 核心：geolocation 必须放行（`(self)` 或 `*`），不能是 `()` */
+      const geoBlocked = /geolocation\s*=\s*\(\s*\)/.test(pp);
+      ok(!geoBlocked,
+         "★ Permissions-Policy 未禁用 geolocation（本站天气靠访客定位）",
+         geoBlocked ? "写成了 geolocation=()，会把天气定位掐死：" + pp : pp);
+      /* 反向守卫：camera / microphone 本站确实不用，应保持禁用 */
+      ok(/camera\s*=\s*\(\s*\)/.test(pp), "camera 保持禁用（本站不用）", pp);
+      ok(/microphone\s*=\s*\(\s*\)/.test(pp), "microphone 保持禁用（本站不用）", pp);
+    } else {
+      ok(true, "本地静态服务不读 _headers → 安全头检查跳过（线上会真验）");
+      ok(true, "同上 → geolocation 策略检查跳过");
+      ok(true, "同上 → camera/microphone 策略检查跳过");
+      ok(true, "同上 → 安全头清单检查跳过");
+    }
+
     /* ============ 14. 手机视口：横向不溢出 ============ */
     await send("Emulation.setDeviceMetricsOverride", {
       width: 390,
