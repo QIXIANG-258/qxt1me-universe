@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>universe og:image 卡片图（1200×630）</title>
+<style>
+  /* 这张页面只用于**生成分享卡片**，不进站点产物。
+     字体用站点自己的（同目录相对路径解析），保证卡片与站内同一套字。 */
+  @import url("css/fonts.css");
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+
+  body {
+    /* 与站内一致的深色态底：--bg-rgb: 24,24,24 的卡片色 */
+    background: #181818;
+    color: #f2f1ed;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    position: relative;
+    display: flex; flex-direction: column;
+    /* 上留白略大于下：标题区是主角，底部站点条贴着下沿收住 */
+    justify-content: center;
+    gap: 58px;
+    padding: 0 84px;
+  }
+
+  /* 微弱网格底纹 —— 延续 gear 卡片的「索引」质感，站群视觉同族 */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .glow { position: absolute; border-radius: 50%; filter: blur(80px); }
+  .glow.a {
+    width: 720px; height: 720px; left: -240px; top: -300px;
+    background: radial-gradient(circle, rgba(96,84,58,.72) 0%, rgba(96,84,58,0) 68%);
+  }
+  .glow.b {
+    width: 660px; height: 660px; right: -260px; bottom: -320px;
+    background: radial-gradient(circle, rgba(52,58,78,.66) 0%, rgba(52,58,78,0) 68%);
+  }
+
+  .top { position: relative; }
+  .eyebrow {
+    font-size: 18px; letter-spacing: .34em; text-transform: uppercase;
+    color: rgba(201,168,106,.92);
+  }
+  h1 {
+    font-family: "QX Serif", Georgia, "Songti SC", serif;
+    font-size: 92px; font-weight: 600; line-height: 1.06; margin-top: 20px;
+    letter-spacing: .01em;
+  }
+  .sub {
+    margin-top: 24px; font-size: 24px; line-height: 1.7;
+    color: rgba(242,241,237,.70);
+  }
+
+  /* 底部三个子站 —— 卡片要一眼说清「这是个导航总入口」 */
+  .sites { position: relative; display: flex; gap: 30px; }
+  .site {
+    display: flex; align-items: center; gap: 12px;
+    padding: 15px 22px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 6px;
+    background: rgba(255,255,255,.035);
+  }
+  .site svg {
+    width: 26px; height: 26px;
+    stroke: rgba(201,168,106,.95); fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    flex: none;
+  }
+  .site .nm { font-size: 21px; letter-spacing: .04em; }
+  .site .dm {
+    font-size: 13px; letter-spacing: .02em;
+    color: rgba(242,241,237,.42); margin-left: 2px;
+  }
+  .domain {
+    position: absolute; right: 0; bottom: 4px;
+    font-size: 18px; letter-spacing: .05em;
+    color: rgba(201,168,106,.85);
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow a"></div>
+  <div class="glow b"></div>
+
+  <div class="top">
+    <div class="eyebrow">UNIVERSE</div>
+    <h1>憩想 · 站群总入口</h1>
+    <p class="sub">把散落在不同子域名的站点收在一处 —— 方便找到，也方便继续加新的。</p>
+  </div>
+
+  <div class="sites">
+    <div class="site">
+      <svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/></svg>
+      <span class="nm">摄影小站</span>
+    </div>
+    <div class="site">
+      <svg viewBox="0 0 24 24"><path d="M4 7.5h17v3H4z"/><path d="M5 10.5v9h14v-9"/><path d="M10 14h4"/></svg>
+      <span class="nm">器材库</span>
+    </div>
+    <div class="site">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>
+      <span class="nm">2048</span>
+    </div>
+    <div class="domain">universe.qxt1me.dpdns.org</div>
+  </div>
+</body>
+</html>

@@ -37,6 +37,9 @@ const BLOG_CSS = (() => {
   return candidates.find((p) => fs.existsSync(p)) || candidates[0];
 })();
 const SHOT_DIR = process.env.SHOT_DIR || path.resolve(__dirname, "..", "_shots");
+/* 本站源码目录 —— 用于校验「og:image 指向的文件真的存在且尺寸对」。
+   与 BLOG_CSS 同一套「从 __dirname 解析」的做法，不写死绝对路径。 */
+const UNIVERSE_SRC = process.env.UNIVERSE_SRC || path.resolve(__dirname, "..", "src");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -852,16 +855,40 @@ const SNAPSHOT = `(() => {
        "og:image 声明了尺寸（抓取器据此排版卡片）",
        s.metaOg["og:image:width"] + "x" + s.metaOg["og:image:height"]);
 
-    /* 卡片比例与 image 形状必须匹配：方形图配 summary_large_image 会被裁成横条。
-       本站用的是 icon-512.png（512×512 方形），所以正确组合是 summary。 */
+    /* 卡片比例与 image 形状必须**双向**匹配（2026-10-08 加强）：
+       方形图配 summary_large_image 会被裁成横条；
+       横版图配 summary 则白白浪费大图版面。
+       本站 2026-10-08 起改用 1200×630 的 og-cover.png，故正确组合是 large_image。
+       ⚠️ 判据写成**双向**而不是只守方形那一侧 —— 只守一侧时，
+          换成横版图却忘了改 card，判据会静默变绿（那正是它要防的错）。 */
     const ogW = Number(s.metaOg["og:image:width"]);
     const ogH = Number(s.metaOg["og:image:height"]);
     const imgIsSquare = ogW > 0 && ogH > 0 && Math.abs(ogW / ogH - 1) < 0.05;
-    ok(!imgIsSquare || s.metaTwitter["twitter:card"] === "summary",
-       "方形 og:image 配 twitter:card=summary（不是 large_image）",
-       "card=" + s.metaTwitter["twitter:card"] + " img=" + ogW + "x" + ogH);
+    const card = s.metaTwitter["twitter:card"];
+    ok(imgIsSquare ? card === "summary" : card === "summary_large_image",
+       "twitter:card 与 og:image 形状配对（方形→summary / 横版→large_image）",
+       "card=" + card + " img=" + ogW + "x" + ogH);
+    ok(ogW === 1200 && ogH === 630,
+       "og:image 声明为 1200×630（社交卡片标准横版）", ogW + "x" + ogH);
     ok(!!s.metaTwitter["twitter:image"],
        "twitter:image 存在（没有它 X 卡片是空壳）", String(s.metaTwitter["twitter:image"]));
+    ok(String(s.metaTwitter["twitter:image"]) === String(s.metaOg["og:image"]),
+       "twitter:image 与 og:image 指向同一张（两套卡不能各指一张）",
+       "og=" + s.metaOg["og:image"] + " tw=" + s.metaTwitter["twitter:image"]);
+
+    /* og:image 指向的 PNG 必须**真的存在**且真是 1200×630（读 PNG 头，不解码整图）。
+       ⚠️ 光有 meta 标签而图片 404，分享出去照样是空白 —— 这是这一组里最容易漏的一条。 */
+    const ogPngPath = path.resolve(UNIVERSE_SRC, "og-cover.png");
+    let pngSize = null;
+    if (fs.existsSync(ogPngPath)) {
+      const b = fs.readFileSync(ogPngPath);
+      if (b.length > 24 && b.slice(12, 16).toString("ascii") === "IHDR") {
+        pngSize = { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+      }
+    }
+    ok(!!pngSize && pngSize.w === 1200 && pngSize.h === 630,
+       "og-cover.png 存在且真实尺寸 1200×630",
+       pngSize ? pngSize.w + "x" + pngSize.h : "文件缺失或不是 PNG");
 
     /* H1：全页恰好一个、有文字、在 main 里。
        ⚠️ 判「有没有 H1」不能只看标签存在 —— 空 H1 同样不合格。 */

@@ -180,8 +180,13 @@ npx --yes wrangler@4 deploy
 > 本机 npx 缓存里同时存在 wrangler **3.114.17** 和 **4.147.0**。
 > v3 **不支持 `assets` 配置** —— 它不会报错，会**静默跳过整个资源目录**，
 > 只上传一个 376 字节的空 Worker（症状：部署显示成功，打开站点是 404 或裸 HTML）。
-> 判据：正确运行时会打印 `✨ Read N files from the assets directory`（本项目 N=13，10 个文件 + 3 个目录），
+> 判据：正确运行时会打印 `✨ Read N files from the assets directory`（本项目 N=24，
+> 21 个文件 + 3 个目录 —— 2026-10-08 实测；此前这里写 N=13，是加了字体/图标/
+> robots/sitemap/og-cover 之前的旧值，已按 `Get-ChildItem` 实数更正），
 > v3 没有这一行。`package.json` 里也钉了 `wrangler ^4.147.0`。
+>
+> ⚠️ 这个数会随站点增删文件而变 —— **别把它当常量背**，改完文件数就现数一遍：
+> `(Get-ChildItem -Recurse -File).Count + (Get-ChildItem -Recurse -Directory).Count`。
 
 > ⚠️ **在 cmd 里切盘符必须用 `cd /d`。** 只写 `cd <盘符>:\<路径>` 在 cmd 中
 > **不会换盘**（且不报错），prompt 仍停在原盘符，wrangler 于是在用户主目录里

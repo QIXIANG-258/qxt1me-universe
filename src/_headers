@@ -69,3 +69,12 @@
   Cache-Control: public, max-age=3600
   # manifest 的正确 MIME —— 缺失时部分浏览器直接忽略整个 manifest
   Content-Type: application/manifest+json
+
+# 分享卡片 og-cover.png（1200×630，2026-10-08 补）。
+# 为什么是 300s 而不是像图标那样给 7 天：这张图**会原地改内容**
+# （加子站、改文案就得重出图），文件名不带内容指纹 —— 给长了改不动。
+# 与 /css/*、/js/* 同档口径。
+# ⚠️ 路径精确到文件名，**不与上面 /icon-*.png 重叠**（那条是 glob，
+#    匹配 icon-180/192/512 等，不会命中 og-cover.png）；/* 兜底段照旧只放安全头。
+/og-cover.png
+  Cache-Control: public, max-age=300

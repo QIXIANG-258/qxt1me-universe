@@ -12,10 +12,14 @@
     <!-- canonical + Open Graph / Twitter（2026-10-08 补）：
          此前本站只有 title/description/robots —— 分享出去没有卡片，
          抓取也少了「主域名就是它」这条信号（gear 有 canonical，blog 全齐）。
-         og:image 用现成的 icon-512.png（512×512，实测尺寸），配 twitter:card=summary ——
-         方形图配 summary 是**正确**组合，配 summary_large_image 才会被裁成横条。
-         ⚠️ 本站没有 1200×630 的横版分享图，不为此临时造一张；真要更好看的卡片，
-         是以后单独产出一张 og-cover.png 的事（见项目要点里的交接文档待办）。 -->
+         og:image 原用现成的 icon-512.png（512×512 方形）配 twitter:card=summary ——
+         方形图配 summary 是对的，配 summary_large_image 才会被裁成横条。
+         **2026-10-08 已换成专门的 1200×630 横版卡片 og-cover.png**，
+         随之把 twitter:card 一起改成 summary_large_image。
+         ⚠️ 这两件事**必须同时改**：换了横版图却留着 summary 会浪费版面，
+            换了 card 却留方形图会被裁成一条 —— 探针里有一条判据专门守这个配对。
+         卡片由 _tools/og_card.html + _tools/make_og_image.js 用真实浏览器渲染
+         （复用本站自己的字体与配色），改文案/加子站后重跑即可。 -->
     <link rel="canonical" href="https://universe.qxt1me.dpdns.org/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="universe · 憩想" />
@@ -23,14 +27,15 @@
     <meta property="og:description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
     <meta property="og:url" content="https://universe.qxt1me.dpdns.org/" />
     <meta property="og:locale" content="zh_CN" />
-    <meta property="og:image" content="https://universe.qxt1me.dpdns.org/icon-512.png" />
-    <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
-    <meta property="og:image:alt" content="universe — 憩想的个人站群总入口" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="https://universe.qxt1me.dpdns.org/og-cover.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="universe — 憩想的个人站群总入口：摄影小站、器材库、2048" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="universe · 憩想" />
     <meta name="twitter:description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
-    <meta name="twitter:image" content="https://universe.qxt1me.dpdns.org/icon-512.png" />
+    <meta name="twitter:image" content="https://universe.qxt1me.dpdns.org/og-cover.png" />
 
     <!-- 首帧应用已保存的主题与语言，避免深/浅切换与中英切换时闪一下 -->
     <script>
