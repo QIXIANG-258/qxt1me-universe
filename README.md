@@ -44,7 +44,8 @@ src/
   fonts/            与 blog 同一批 woff2（QX Serif 4 片 + Great Vibes）
 _tools/
   extract_fonts.py      从 blog 的 style.css 抽字体声明过来
-  probe_universe.js     浏览器验收探针（52 项）
+  probe_universe.js     浏览器验收探针（130 项）
+_serve_with_headers.js 会读 _headers 的静态服务（本地就验安全头/缓存头）
 _shots/                 探针产出的截图与日志
 ```
 
@@ -119,7 +120,7 @@ python -m http.server 8801 --bind 127.0.0.1
 # 打开 http://127.0.0.1:8802/
 ```
 
-## 验收（浏览器探针，55 项）
+## 验收（浏览器探针，130 项）
 
 ```bash
 # 需要 src 已在跑（同上），并已装 ws（Node 的 WebSocket 客户端）
@@ -137,6 +138,24 @@ node _tools/probe_universe.js
 > ⚠️ 探针会按 `PROBE_URL` 自动决定挂不挂代理：目标是本机就不挂，
 > 是线上就挂 `127.0.0.1:7897`（本机直连 `workers.dev` 与自定义域会失败）。
 > 用 `PROBE_PROXY` 可覆盖。
+
+### 想在本机验 `_headers`（安全头 / 缓存头）？
+
+`python -m http.server` **不读 `_headers`**，所以以前这类判据只能等部署后才验
+（本地一律走「跳过」分支）。用这支替代服可以本地真验：
+
+```bash
+node _tools/_serve_with_headers.js 8820
+set PROBE_URL=http://127.0.0.1:8820/
+node _tools/probe_universe.js
+```
+
+它按 Workers/Pages 的 `_headers` 语法解析并**每次请求现读**（不缓存）——
+所以「改 `_headers` → 立刻重跑探针」就能做**注入故障实证**，不必先部署。
+> ⚠️ 这条很重要：`_headers` 的判据如果不做注入实证，很容易写出假绿。
+> 2026-10-08 就踩过一次：Permissions-Policy 把自家天气定位掐死
+> （`geolocation=()`），而探针**当时完全没有 `_headers` 判据**，
+> 线上功能已退化、探针却全绿。现已补上 4 条并做通注入实证。
 
 探针的判据**现读** blog 的 `style.css` 取令牌再比对，
 不写死颜色常量 —— 所以它验的是「是否真的与 blog 匹配」，不是对着自己的抄件打勾。
