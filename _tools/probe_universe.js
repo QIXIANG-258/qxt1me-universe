@@ -220,8 +220,13 @@ const SNAPSHOT = `(() => {
         （联系方式本来就该指向站外），却会被「无臆造外链」判据判成假红。
         所以这里收窄到 .social-container。
      ⚠️ 2026-10-08 加了「外站」板块后，它也用 .social-container（复用了版式），
-        所以再排除 .ext-container —— 否则外站那 4 条会被「无臆造外链」判假红。 */
-  const links = [...document.querySelectorAll('.social-container:not(.ext-container) a')]
+        所以再排除 .ext-container。
+     ⚠️ 同日又加了「Git 项目」板块，同样复用 .social-container —— 也要排除
+        （那块按设计就是指向站外的 GitHub 仓库）。
+        最终口径：「站点」卡片 = .social-container 里**既不是** .ext-container
+        **也不是** .git-container 的那一块。 */
+  const links = [...document.querySelectorAll(
+    '.social-container:not(.ext-container):not(.git-container) a')]
     .map(a => a.getAttribute('href'));
   /* 外站板块单独取样：验「确实是站外 + 新窗口 + noopener」 */
   const extAs = [...document.querySelectorAll('.ext-container a')];
@@ -231,10 +236,20 @@ const SNAPSHOT = `(() => {
     allBlank: extAs.length > 0 && extAs.every(a => a.getAttribute('target') === '_blank'),
     allNoopener: extAs.length > 0 && (extAs.every(a => /(^|\\s)noopener(\\s|$)/.test(a.getAttribute('rel') || ''))),
   };
+  /* Git 项目板块单独取样（2026-10-08 新增）：
+     验「指向 GitHub 的 public 仓库 + 新窗口 + noopener + 不是 private 那几个」。 */
+  const gitAs = [...document.querySelectorAll('.git-container a')];
+  const gitLinks = gitAs.map(a => a.getAttribute('href'));
+  const gitTargets = {
+    n: gitAs.length,
+    allBlank: gitAs.length > 0 && gitAs.every(a => a.getAttribute('target') === '_blank'),
+    allNoopener: gitAs.length > 0 && gitAs.every(a => /(^|\\s)noopener(\\s|$)/.test(a.getAttribute('rel') || '')),
+    allGitHub: gitAs.length > 0 && gitAs.every(a => /^https:\\/\\/github\\.com\\/QIXIANG-258\\//.test(a.getAttribute('href') || '')),
+  };
   /* 联系方式栏的链接单独取样（判据里确认它们存在、且确实是外链） */
   const contactLinks = [...document.querySelectorAll('.contact-a')].map(a => a.getAttribute('href'));
   /* 卡片数（判据里验布局形态）。
-     ⚠️ 2026-10-08 两个卡片被 .boards 包了一层，不再是 main 的直接子元素 ——
+     ⚠️ 2026-10-08 卡片被 .boards 包了一层，不再是 main 的直接子元素 ——
         原来的 'main > .container' 会数成 0。改成按 main 内整体数 .container。 */
   const containerCount = document.querySelectorAll('main .container').length;
   return {
@@ -291,6 +306,9 @@ const SNAPSHOT = `(() => {
     /* 「外站」卡片（2026-10-08 新增） */
     extHrefs: extLinks,
     extTargets: extTargets,
+    /* 「Git 项目」卡片（2026-10-08 新增） */
+    gitHrefs: gitLinks,
+    gitTargets: gitTargets,
     contactLinks: contactLinks,
     containerCount: containerCount,
     /* 指向站群之外的所有链接（判据 §6 用）。
@@ -579,42 +597,50 @@ const SNAPSHOT = `(() => {
     ok(s.cardRect && s.cardRect.y > 100 && s.cardRect.y < 700,
        "站点栏落在首屏内", JSON.stringify(s.cardRect));
     /* 布局形态：2026-10-07 是**单栏**（只有「站点」）；
-       2026-10-08 加了「外站」，定稿为**并列两栏**。
-       所以这里验「恰好 2 个板块」+「两块等高并排」，
-       而不是原来那句「主区是单栏」——那条已被本轮的改动取代。 */
-    ok(s.containerCount === 2, "主区恰好两个板块（站点 + 外站）",
+       2026-10-08 先加「外站」成两栏，再加「Git 项目」成**并列三栏**。
+       所以这里验「恰好 3 个板块」+「三块同排、等宽、等高」。
+       ⚠️ 阈值不写死成某个像素值 —— 版心是 70em（量出来的，见 style.css），
+          视口 1440 下每块约 356px，但换视口就会变，所以只比**相等性**与下界。 */
+    ok(s.containerCount === 3, "主区恰好三个板块（站点 / 外站 / Git 项目）",
        `${s.containerCount} 栏`);
-    /* 两块应当等高（grid 同一行 stretch 的效果）——差太多说明一高一低很难看 */
+    /* 三块应当同排、等宽、等高（grid 同一行 stretch 的效果） */
     const boardGeom = await ev(`(() => {
       const bs = [...document.querySelectorAll('.boards > .container')];
-      if (bs.length !== 2) return { n: bs.length };
+      if (bs.length !== 3) return { n: bs.length };
       const r = bs.map(b => b.getBoundingClientRect());
-      return { n: 2, w0: Math.round(r[0].width), w1: Math.round(r[1].width),
-               h0: Math.round(r[0].height), h1: Math.round(r[1].height),
-               sameRow: Math.abs(r[0].top - r[1].top) < 4,
-               leftFirst: r[0].left < r[1].left };
+      const ws = r.map(x => Math.round(x.width));
+      const hs = r.map(x => Math.round(x.height));
+      const tops = r.map(x => Math.round(x.top));
+      const lefts = r.map(x => Math.round(x.left));
+      return { n: 3, ws: ws, hs: hs, tops: tops, lefts: lefts,
+               sameRow: Math.max(...tops) - Math.min(...tops) < 4,
+               increasingLefts: lefts[0] < lefts[1] && lefts[1] < lefts[2],
+               maxWSpread: Math.max(...ws) - Math.min(...ws),
+               maxHSpread: Math.max(...hs) - Math.min(...hs) };
     })()`);
-    ok(boardGeom.n === 2 && boardGeom.sameRow,
-       "两个板块在同一行并排（不是上下堆叠）", JSON.stringify(boardGeom));
-    ok(boardGeom.n === 2 && Math.abs(boardGeom.w0 - boardGeom.w1) <= 2,
-       "两个板块等宽", `w ${boardGeom.w0} vs ${boardGeom.w1}`);
-    ok(boardGeom.n === 2 && Math.abs(boardGeom.h0 - boardGeom.h1) <= 2,
-       "两个板块等高（grid stretch；否则一高一低）", `h ${boardGeom.h0} vs ${boardGeom.h1}`);
-    /* 单块宽度：两栏并列后每块约版心一半（46em 的一半 ≈ 340px @16px 根字号）。
-       阈值取 280 而不是原来的 300 —— 并列本来就比单栏窄，
+    ok(boardGeom.n === 3 && boardGeom.sameRow,
+       "三个板块在同一行并排（不是上下堆叠）", JSON.stringify(boardGeom));
+    ok(boardGeom.n === 3 && boardGeom.increasingLefts,
+       "三块从左到右排列（DOM 顺序与视觉顺序一致）", JSON.stringify(boardGeom.lefts));
+    ok(boardGeom.n === 3 && boardGeom.maxWSpread <= 2,
+       "三个板块等宽", `宽度 ${JSON.stringify(boardGeom.ws)}`);
+    ok(boardGeom.n === 3 && boardGeom.maxHSpread <= 2,
+       "三个板块等高（grid stretch；否则参差不齐）",
+       `高度 ${JSON.stringify(boardGeom.hs)}`);
+    /* 单块宽度：三栏并列后每块约版心三分之一（70em / 3 ≈ 356px @16px 根字号）。
+       阈值取 260 —— 三栏本来就比两栏窄，而且换窄视口会折成两列/一列，
        这里要守的是「没被挤成竖排」而不是「够宽」。 */
-    ok(s.cardRect && s.cardRect.w >= 280,
-       "站点栏宽度正常（并列两栏下未被挤塌）",
+    ok(s.cardRect && s.cardRect.w >= 260,
+       "站点栏宽度正常（并列三栏下未被挤塌）",
        `宽 ${s.cardRect && s.cardRect.w}px`);
 
     /* ============ 6. 内容守卫：不臆造深链、不重复列同一站 ============ */
     /* ★ 断言从「全部指向 blog 域」放宽为「全部指向本站群自己的域」——
        原来只有 blog 一个子站，现在加了 gear-search，旧断言会假红。
        真正要守的是：**不臆造指向站外的深链**。
-       ★ 2026-10-08 再加「外站」板块后，本条**必须限定在「站点」卡片内**：
-         外站板块的存在意义就是指向站外，把它算进来会立刻假红。
-         这里改成只扫 `.social-container:not(.ext-container)` 里的链接
-         （s.hrefs 是整页链接，不适合本条了；见下面 s.siteCardHrefs）。 */
+       ★ 2026-10-08 加「外站」与「Git 项目」两块后，本条**必须限定在「站点」卡片内**：
+         那两块的存在意义就是指向站外，算进来会立刻假红。
+         见上面 siteCardHrefs 的取样说明（排除了 .ext-container 与 .git-container）。 */
     const OWN_DOMAINS = /^https:\/\/([a-z0-9-]+\.)?qxt1me\.dpdns\.org(\/|$)/;
     const strays = s.siteCardHrefs.filter((h) => h && !OWN_DOMAINS.test(h));
     ok(strays.length === 0, "「站点」卡片里的链接都指向本站群自己的域名（无臆造外链）",
@@ -628,6 +654,67 @@ const SNAPSHOT = `(() => {
     ok(s.extTargets.allBlank && s.extTargets.allNoopener,
        "「外站」链接都 target=_blank 且 rel=noopener",
        JSON.stringify(s.extTargets));
+
+    /* ★ 「Git 项目」卡片（2026-10-08 新增）——
+       这块是「我账号下的 public 开源仓库」。要守三件事：
+         ① 都指向 github.com/QIXIANG-258/ 下的仓库（不是别处）
+         ② 都新窗口 + noopener（与其它外链同规）
+         ③ ★ **绝不能出现 private 仓库** —— 点进去 404 或登录墙。
+            这里用一份"已知 private"清单反着卡；清单来自实测的
+            `GET /user/repos?affiliation=owner`（2026-10-08：账号下 8 个仓库，
+            4 public / 4 private）。以后再加项目时若误把 private 放进来，这条会红。 */
+    const KNOWN_PRIVATE = ['qxt1me-blog', 'qxt1me-gear', 'qxt1me-notes', 'DOS-Correct'];
+    const gitPrivate = s.gitHrefs.filter((h) =>
+      KNOWN_PRIVATE.some((n) => new RegExp('/' + n + '(?:$|[/?#])', 'i').test(h || '')));
+    ok(gitPrivate.length === 0,
+       "★ 「Git 项目」里没有 private 仓库（点进去会 404 / 登录墙）",
+       JSON.stringify(gitPrivate));
+    ok(s.gitTargets.allGitHub,
+       "「Git 项目」链接都指向 github.com/QIXIANG-258/ 下的仓库",
+       JSON.stringify(s.gitHrefs));
+    ok(s.gitTargets.allBlank && s.gitTargets.allNoopener,
+       "「Git 项目」链接都 target=_blank 且 rel=noopener",
+       JSON.stringify(s.gitTargets));
+    /* ★ 反向守卫：本站群自己的仓库（universe / 2048）**不该**出现在这块 ——
+       它们是站群成员，已经在「站点」栏了；重复列会让同一站出现两次。
+       （这条同时呼应 §6 的「一个站只列一次」。） */
+    const gitSelf = s.gitHrefs.filter((h) => /qxt1me-(universe|2048|blog|gear)/.test(h || ''));
+    ok(gitSelf.length === 0,
+       "★ 「Git 项目」里没有站群自己的仓库（它们已在「站点」栏，避免重复）",
+       JSON.stringify(gitSelf));
+    /* 结构：nav 地标 + H2 + aria-labelledby 对应 + 每条有图标/名/说明 */
+    const git = await ev(`(() => {
+      const nav = document.querySelector('.git-container');
+      if (!nav) return null;
+      const h2 = nav.querySelector('h2');
+      const as = [...nav.querySelectorAll('a')];
+      return {
+        isNav: nav.tagName === 'NAV',
+        hasH2: !!h2 && (h2.textContent || '').trim().length > 0,
+        labelled: nav.getAttribute('aria-labelledby') === (h2 && h2.id),
+        n: as.length,
+        eachHasIcon: as.every(a => !!a.querySelector('.ico svg')),
+        eachHasLabel: as.every(a => {
+          const spans = [...a.querySelectorAll('span')];
+          return spans.some(s => (s.textContent || '').trim().length > 0 && !s.classList.contains('hint'));
+        }),
+        eachHasHint: as.every(a => !!a.querySelector('.hint')),
+        names: as.map(a => ((a.querySelector('span:not(.hint)') || {}).textContent || '').trim()),
+      };
+    })()`);
+    ok(!!git && git.isNav && git.hasH2 && git.labelled,
+       "「Git 项目」是独立 nav 地标且有 H2（与 aria-labelledby 对应）",
+       JSON.stringify(git && { nav: git.isNav, h2: git.hasH2, lb: git.labelled }));
+    ok(!!git && git.n >= 1, "「Git 项目」至少一条链接", "实测 " + (git && git.n) + " 条");
+    ok(!!git && git.eachHasIcon && git.eachHasLabel && git.eachHasHint,
+       "「Git 项目」每条都有图标 + 项目名 + 说明",
+       JSON.stringify(git && { i: git.eachHasIcon, l: git.eachHasLabel, h: git.eachHasHint }));
+    /* 作者指定的两项必须在（cleanplate / color-your-day）——
+       钉住它们，防止以后被误删。用仓库名匹配，不写死完整 URL。 */
+    const WANT_GIT = ['cleanplate', 'color-your-day'];
+    ok(WANT_GIT.every((n) => (git && git.names || []).some((x) => x === n)),
+       "「Git 项目」含作者指定的 cleanplate 与 color-your-day",
+       "实得 " + JSON.stringify(git && git.names));
     /* ★ 「外站」板块的结构：是个 landmark（nav）、有 H2 标题、四条链接、
        每条都有图标 + 站名 + 说明（说明用官方名之外的短注，可读性靠它）。 */
     const ext = await ev(`(() => {
@@ -707,7 +794,7 @@ const SNAPSHOT = `(() => {
       var cs = getComputedStyle(b);
       var dateR = document.querySelector('.clock-date').getBoundingClientRect();
       var sr = document.querySelector('.search').getBoundingClientRect();
-      var inSiteCard = !!document.querySelector('.social-container:not(.ext-container) #weather');
+      var inSiteCard = !!document.querySelector('.social-container:not(.ext-container):not(.git-container) #weather');
       var inTools = !!b.closest('.tools');
       var out = {
         cx: Math.round(r.left + r.width / 2), vw: innerWidth,

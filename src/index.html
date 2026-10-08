@@ -257,6 +257,43 @@
           <span class="hint" data-zh="Galgame 聚合搜索" data-en="Galgame search engine">Galgame 聚合搜索</span>
         </a>
       </nav>
+
+      <!-- Git 项目（2026-10-08 作者要求新增）——
+           与「站点」「外站」并列成第三块：这块是「我开源的东西」。
+           与另两块的区别：
+             · 站点 = 我自己的域名下的站（站群成员）
+             · 外站 = 别人的站，我常去
+             · 本项目 = 我账号下的 **public** 开源仓库
+           ⚠️ 只放 **public** 的。private 仓库（qxt1me-blog / -gear / -notes /
+              DOS-Correct）不能上导航 —— 点进去是 404 或登录墙。
+           ⚠️ 本块**也**用 .social-container（复用版式）但又加了 .git-container，
+              所以探针里「站点卡片内链接都指向本站群」那条必须排除它 ——
+              详见 probe_universe.js 里 siteCardHrefs 的取样说明。
+           ⚠️ 外链一律 target="_blank" + rel="noopener"。
+           ⚠️ 目前两项都**没有线上 demo**（实测 homepage 未设置、has_pages=false），
+              所以指向仓库本身；以后作者部署了 demo，再改 href 并把 hint 写成域名。 -->
+      <nav class="container social-container git-container" aria-labelledby="gitTitle">
+        <h2 id="gitTitle">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8.5v7"/><path d="M8.5 6h4a3 3 0 013 3v.5"/><path d="M8.5 18h4a3 3 0 003-3v-.5"/></svg>
+          </i>
+          <span data-zh="Git 项目" data-en="Git Projects">Git 项目</span>
+        </h2>
+        <a href="https://github.com/QIXIANG-258/cleanplate" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 6.5l2.5-2.5 13 13-2.5 2.5z"/><path d="M3.5 20.5l3.5-1-2.5-2.5z"/><path d="M13.5 8.5l2 2"/></svg>
+          </i>
+          <span>cleanplate</span>
+          <span class="hint" data-zh="本地 AI 去杂物工具" data-en="Local AI object removal">本地 AI 去杂物工具</span>
+        </a>
+        <a href="https://github.com/QIXIANG-258/color-your-day" target="_blank" rel="noopener">
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="5.4" height="5.4" rx="1"/><rect x="9.3" y="3.5" width="5.4" height="5.4" rx="1"/><rect x="15.1" y="3.5" width="5.4" height="5.4" rx="1"/><rect x="3.5" y="9.3" width="5.4" height="5.4" rx="1"/><rect x="9.3" y="9.3" width="5.4" height="5.4" rx="1"/><rect x="15.1" y="9.3" width="5.4" height="5.4" rx="1"/><rect x="3.5" y="15.1" width="5.4" height="5.4" rx="1"/></svg>
+          </i>
+          <span>color-your-day</span>
+          <span class="hint" data-zh="每日颜色小组件" data-en="Color of the day widget">每日颜色小组件</span>
+        </a>
+      </nav>
       </div>
     </main>
 
