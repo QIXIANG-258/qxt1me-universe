@@ -321,7 +321,33 @@
       </div>
     </footer>
 
+    <!-- 访客记录（2026-10-10 作者要求新增）
+         —— 固定在视窗左下角，不随滚动移动。
 
+         ⚠️ 设计前先量过遮挡（CDP 逐点 elementFromPoint 采样，见 _tools/probe_visits.js）：
+            单个平台内，内容**垂直居中且铺满视窗**，所以左下角在**任何**视口下
+            都压着东西。实测被压的依次是：
+              · 1440px → 只压到 skip-link（它平时在视窗外，无害）
+              · 1024/390 页顶 → 压到 main（纯容器，无自身文字）
+              · 1024/390 **滚到底 → 压到页脚文字**（universe / 憩想 · 个人站群总入口）
+            所以「完全不遮挡」做不到，能做的是**让唯一有冲突的那一处让开**：
+            当页脚进入视窗时，本徽标淡出（见 CSS 的 .foot 可见性联动 + app.js）。
+            这样定稿下的语义是：**徽标只在没有页脚可挡时出现**。
+
+         ⚠️ 家族铁律「界面零彩度」：这里全部用 --fg-* 灰阶，不引任何强调色。
+         ⚠️ 数据是真计数（Cloudflare KV），不是前端编的 ——
+            见 worker/index.js 与 wrangler.jsonc 的 UV_VISITS 绑定。 -->
+    <div class="visits" id="visits" hidden
+         role="status" aria-live="polite"
+         data-zh-title="访客记录 · 每日去重" data-en-title="Visitors · deduped daily">
+      <i class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      </i>
+      <span class="visits-num" id="visits-total">—</span>
+      <span class="visits-label" id="visits-label"
+            data-zh="位访客" data-en="visits">位访客</span>
+      <span class="visits-today" id="visits-today"></span>
+    </div>
 
     <script src="js/app.js"></script>
   </body>

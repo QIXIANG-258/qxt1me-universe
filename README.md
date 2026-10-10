@@ -40,12 +40,15 @@ src/
   index.html        页面（内联线性 SVG 图标，无外部 CDN）
   css/fonts.css     字体声明 —— 从 blog 机械抽取，勿手改
   css/style.css     设计令牌 + 排版 + 质感
-  js/app.js         时钟 / 搜索 / 中英切换 / 明暗切换
+  js/app.js         时钟 / 搜索 / 中英切换 / 明暗切换 / **访客记录**
   fonts/            与 blog 同一批 woff2（QX Serif 4 片 + Great Vibes）
+worker/
+  index.js          **唯一的服务端代码**：/api/visits 访客计数（用 KV UV_VISITS）
 _tools/
   extract_fonts.py      从 blog 的 style.css 抽字体声明过来
-  probe_universe.js     浏览器验收探针（130 项）
-_serve_with_headers.js 会读 _headers 的静态服务（本地就验安全头/缓存头）
+  probe_universe.js     浏览器验收探针（130 项 / 线上 139）
+  probe_visits.js       访客记录专项（25 项：固定 / 不挡内容 / 零彩度）
+  _serve_with_headers.js 会读 _headers 的静态服务（本地就验安全头/缓存头）
 _shots/                 探针产出的截图与日志
 ```
 
@@ -139,6 +142,30 @@ node _tools/probe_universe.js
 > 是线上就挂 `127.0.0.1:7897`（本机直连 `workers.dev` 与自定义域会失败）。
 > 用 `PROBE_PROXY` 可覆盖。
 
+### 访客记录专项（`_tools/probe_visits.js`，25 项）
+
+2026-10-10 新增。**必须打有 `/api/visits` 的地址**（`wrangler dev` 或线上）：
+
+```bash
+# 线上
+set PROBE_URL=https://universe.qxt1me.dpdns.org/
+node _tools/probe_visits.js
+# 本地：先 npx.cmd --yes wrangler@4 dev --port 8799 --local，然后
+set PROBE_URL=http://127.0.0.1:8799/
+node _tools/probe_visits.js
+```
+
+它对应作者提的三条要求，逐条量化：
+**固定**（滚动 30px 后视口坐标不变 / 相对文档绝对位置等量变化）、
+**不挡内容**（`pointer-events:none` 穿透实证 + 与页脚不重叠 + 抬升量自洽）、
+**风格搭配**（零彩度：R/G/B 极差 ≤12、字族是 `--f-cn`、毛玻璃同「关于」弹窗）。
+
+> ⚠️ 写这个探针时踩到两个坑，都记在文件注释里：
+> ① **不能断言「滚动前后 top 完全相同」** —— 徽标与页脚重叠时会**故意**抬升，
+> 那条断言会把特性判成 bug（第一版就这么误报的）。要改成「在抬升量不变的两点间比较」。
+> ② **抬升带 .22s 过渡，必须等落定再量** —— 固定 `sleep(500)` 会读到动画中间帧
+> （实测残留 4px 位移）。改成轮询到「两次采样一致」。
+
 ### 想在本机验 `_headers`（安全头 / 缓存头）？
 
 `python -m http.server` **不读 `_headers`**，所以以前这类判据只能等部署后才验
@@ -177,8 +204,43 @@ python _tools\extract_fonts.py
 > 📘 **完整操作流程见 [`docs/手动上线操作手册.md`](docs/手动上线操作手册.md)** ——
 > 含三步法、改什么的注意事项、三套探针的跑法、以及本站特有的坑。
 
-universe 是**纯静态、无构建步骤** —— `src/` 里就是最终产物。
-`wrangler.jsonc` 的 `assets.directory` 指向 `./src`，Worker 名 `qxt1me-universe`。
+universe 原来是**纯静态、无构建步骤**（`src/` 里就是最终产物）。
+**2026-10-10 起加了一个极小的 Worker 入口**（`worker/index.js`）—— 为左下角的
+**访客记录**提供真实计数（见下节）。其余不变：`assets.directory` 仍指向 `./src`，
+**依旧没有构建步骤**，Worker 名 `qxt1me-universe`。
+
+### 访客记录（2026-10-10 新增）
+
+| | |
+|---|---|
+| 前端 | `src/index.html` 的 `#visits` + `src/css/style.css` 的 `.visits` + `src/js/app.js` 第 8 节 |
+| 后端 | `worker/index.js`（只处理 `/api/visits`） |
+| 存储 | KV 命名空间 `UV_VISITS`（id `c6631cf23aeb427f97f2c22d84eb5d0b`） |
+| 探针 | `_tools/probe_visits.js`（25 项） |
+
+**为什么需要 KV**：真实计数必须有持久化，前端算不出来。
+家族铁律「零第三方依赖」仍然成立 —— 计数用本账号自己的 KV，
+**没有**引不蒜子之类的公共计数服务。
+
+**接口**：`POST /api/visits` 记一次（同 IP 同日去重）；`GET` 只读不累加。
+为什么必须 POST：GET 会被浏览器预取、爬虫、刷新**自动重放**，
+用 GET 计数等于每次路过都 +1。IP 只存哈希（当日去重用途），不存明文。
+
+**⚠️ 改动 `wrangler.jsonc` 时注意**：`assets.run_worker_first` 必须包含 `/api/*`，
+否则这些路径会先落到静态资源兜底上，**返回 404 页而不是 JSON**。
+
+```powershell
+# 本地跑（带 KV 模拟），会真发 /api/visits
+npx.cmd --yes wrangler@4 dev --port 8799 --local
+# 注意：用 python -m http.server 起的话没有 /api，徽标会**保持隐藏**（这是设计的降级行为）
+```
+
+**「不挡住内容」是怎么做到的**：本站内容垂直居中且铺满视窗，
+左下角在**任何**视口下都压着东西（实测：1440 只压到 skip-link；多数视口压到
+纯容器；滚到底压到页脚文字）。所以用了两层：
+① `pointer-events:none` —— 视觉重叠也**不影响点击**（鼠标事件穿透）；
+② 与页脚真重叠时**抬升让位**（不是隐藏）—— 见 `app.js` 里 `computeLift()` 的注释，
+那段记了三版踩坑（「页脚可见就隐藏」在 1440×900 下会永远隐藏）。
 
 两条路，任选：
 

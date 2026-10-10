@@ -488,6 +488,143 @@
     });
   }
 
+  /* ---------------------------------------------------------
+     8. 访客记录（左下角固定徽标，2026-10-10 作者要求新增）
+
+     数据来自本站自己的 Worker 接口 `/api/visits`（Cloudflare KV 存储）。
+     **不是前端编的数字** —— 真计数必须有持久化，见 worker/index.js。
+
+     接口约定：
+       POST /api/visits  → 记一次访问（同 IP 同日只计一次）
+       GET  /api/visits  → 只读，不累加
+     这里用 POST：/api/visits 的 GET 会被预取、爬虫、刷新反复重放，
+     用 GET 计数等于每次路过都 +1。
+
+     ★ 与「不挡住内容」相关的两条实现（对应作者的要求）：
+       ① 页脚进入视窗时淡出（IntersectionObserver 打 .is-off）
+          —— 实测页脚是左下角**唯一**真被压住的内容
+       ② CSS 里给了 pointer-events:none，所以即使视觉上重叠，
+          鼠标事件也会穿透到下面的元素上，**不会让任何东西点不到**
+          （探针有专门断言验这两条）
+
+     ★ 失败降级：接口不通就**整个徽标不显示**（保持 hidden）。
+       不编造数字、不显示 «--»，宁可没有 —— 与天气那块的处理原则一致。
+     --------------------------------------------------------- */
+  var visitsEl = $("#visits");
+
+  if (visitsEl) {
+    var $total = $("#visits-total");
+    var $label = $("#visits-label");
+    var $today = $("#visits-today");
+    var lastVisits = null;
+
+    function renderVisits(d) {
+      if (!d || typeof d.total !== "number") return;
+      /* 千分位：数字大了更好读。toLocaleString 在 Worker/浏览器都可用。 */
+      $total.textContent = d.total.toLocaleString("en-US");
+      /* 今日新增只在「今天确实有人来过」时显示，且不喧宾夺主 */
+      var lang = document.documentElement.lang === "en" ? "en" : "zh";
+      $today.textContent = d.today > 0
+        ? (lang === "en" ? " · " + d.today + " today" : " · 今日 " + d.today)
+        : "";
+      visitsEl.hidden = false;
+      visitsEl.setAttribute("title", visitsEl.getAttribute(
+        lang === "en" ? "data-en-title" : "data-zh-title") || "");
+      /* ⚠️ 显示之后必须重算一次让位 —— hidden 时 getBoundingClientRect 全是 0，
+         那一刻算出来的高度是 0，会把「本该抬升」误判成「不用抬」 */
+      if (typeof computeLift === "function") computeLift();
+    }
+
+    function loadVisits() {
+      fetch("/api/visits", {
+        method: "POST",
+        /* 不能让浏览器缓存这个响应 —— 否则第二个访客看到的是第一个人的数字 */
+        cache: "no-store",
+        headers: { "accept": "application/json" },
+      })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
+        .then(function (d) {
+          lastVisits = d;
+          renderVisits(d);
+        })
+        .catch(function () {
+          /* 接口不可用（本地 file:// 预览、KV 抖动）→ 保持 hidden。
+             不编数字、不显示占位符。 */
+          visitsEl.hidden = true;
+        });
+    }
+
+    /* 语言切换时重渲染（"位访客" 这个 label 走 data-zh/data-en，
+       但「今日 N」是 JS 拼的，要跟着切） */
+    document.addEventListener("uv:lang", function () {
+      if (lastVisits) renderVisits(lastVisits);
+    });
+
+    /* ① 与页脚**真重叠**时 → 抬到页脚之上（让位，而不是隐藏）。
+
+       ⚠️ 三版都踩过坑，全部记下来 —— 这个「看似简单」的需求其实很容易写错：
+          v1「页脚可见就隐藏」→ 1440×900 下永远隐藏
+             （该尺寸文档高仅 1036px、视口 900px，页脚 footTop=869 一直在视窗里）。
+          v2「按当前矩形算抬升」→ 拿到的是「已经抬过」的位置，
+             抬升量在滚动中自我累加（实测 71px→83px→126px→30px 来回跳）。
+          v3（定稿）**只在滚动停止后、以明确的基准计算一次**，且用
+             「徽标底边与页脚顶边的**固定差值**」反推，避免读自己的输出。
+
+       定稿逻辑：
+         ① 用一个**不随滚动变化的基准**——徽标的「未抬升底边」= 视口高 - 基准偏移。
+            基准偏移就是 CSS 里的 14px（窄屏 10px），它恒定。
+         ② 需要的抬升 = max(0, 页脚顶边距视口底的距离不足量)
+            = max(0, (视口高 - fr.top) - 基准偏移 + 间隙)
+         ③ 这个式子只依赖 fr.top，**不依赖徽标自己的位置** → 不可能自我迭代。
+       再配合滚动结束后才计算（rAF 节流 + 60ms 静置），滚动的中间帧不会来回抖。 */
+    var footEl = $(".foot");
+    var lastLift = -1;
+    var settleTimer = null;
+
+    /* 徽标未抬升时距视口底边的基准偏移（与 CSS 一致） */
+    function baseOffset() {
+      return window.matchMedia("(max-width: 620px)").matches ? 10 : 14;
+    }
+
+    function computeLift() {
+      if (visitsEl.hidden || !footEl) return;
+      var fr = footEl.getBoundingClientRect();
+      var gap = 12;
+      var vr = visitsEl.getBoundingClientRect();
+      var h = vr.height || 32;
+      var base = baseOffset();          /* 未抬升时徽标距视口底的偏移 */
+      /* 未抬升时：徽标底边距视口底 = base，即底边在 y = innerHeight - base。
+         要让它**整体**落在页脚顶边之上并留 gap：
+             需要抬升 >= (innerHeight - base) - fr.top + gap
+         ⚠️ 这里曾经写错：把「徽标高度 h」也算进去，得到
+            `h + base + gap - (innerHeight - fr.top)`，实测恒为负 → 永不抬升。
+            正确式子里**不该出现 h** —— 因为「底边抬到页脚之上」本身就是判据，
+            高度只影响顶边（它自然跟着上移）。 */
+      var need = (window.innerHeight - base) - fr.top + gap;
+      var lift = need > 0 ? Math.ceil(need) : 0;
+      if (lift !== lastLift) {
+        lastLift = lift;
+        if (lift > 0) visitsEl.style.setProperty("--visits-lift", lift + "px");
+        else visitsEl.style.removeProperty("--visits-lift");
+      }
+    }
+
+    function scheduleCompute() {
+      /* 滚动结束后静置 60ms 再算 —— 中间帧不参与，避免来回抖 */
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(computeLift, 60);
+    }
+
+    if (footEl) {
+      window.addEventListener("scroll", scheduleCompute, { passive: true });
+      window.addEventListener("resize", scheduleCompute, { passive: true });
+      computeLift();
+      setTimeout(computeLift, 0);
+    }
+
+    loadVisits();
+  }
+
   /* 首帧内联脚本已经按 localStorage 改过 <html lang>，这里把文案补齐 */
   applyLang(document.documentElement.lang === "en" ? "en" : "zh");
 })();

@@ -1113,6 +1113,129 @@ html[lang="en"] .foot-name {
 }
 
 /* ---------------------------------------------------------
+   访客记录（左下角固定徽标，2026-10-10 作者要求新增）
+
+   定位：position:fixed 固定在视窗左下角，**不随滚动移动**（这是作者明确要求）。
+
+   ★ 为什么不写 bottom:0 —— 见 _tools/probe_visits.js 的实测：
+     本站内容**垂直居中且铺满视窗**，左下角在**任何**视口下都压着东西。
+     逐个量过（1440/1280/1180/1024/900/820/390）：
+       · 1440 只压到 skip-link（平时在视窗外，无害）
+       · 多数视口压到 main/container（纯容器，无自身文字）
+       · **滚到底时压到页脚文字** ← 唯一真冲突
+     所以本设计用「页脚可见即淡出」来消解那一处冲突（见下面 .visits.is-off），
+     而不是硬把它挪到一个不存在空位的地方。
+
+   ★ 零彩度（家族铁律）：只用 --fg-* 灰阶 + 半透明底，不引任何强调色。
+     它要和「关于本站」弹窗、右上工具条看起来是同一套东西。
+
+   ★ 视觉语言对齐现有控件：圆角用 --r-sm、描边用 --line-rgb、
+     字族用 --f-cn、阴影用 --shadow-rest。
+   --------------------------------------------------------- */
+.visits {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 20;                 /* 高于卡片(1/2)，低于「关于」弹窗(100) */
+
+  /* 页脚重叠时的抬升量（由 app.js 的 syncVisitsOverlap() 写这个变量）。
+     ⚠️ 用 bottom 的 calc 而不是 transform:translateY ——
+        transform 会改变 getBoundingClientRect 的结果，
+        而探针要断言「固定在视窗、滚动时视口坐标不变」，
+        用 transform 会让那条断言读到位移、看起来像「没固定住」。
+        改 bottom 则视口坐标同样变化，但语义清晰（它是布局位置不是变换）。 */
+  bottom: calc(14px + var(--visits-lift, 0px));
+
+  display: inline-flex;
+  align-items: center;
+  gap: .45em;
+
+  padding: 6px 11px 6px 9px;
+  border: 1px solid rgba(var(--line-rgb), .10);
+  border-radius: 999px;        /* 胶囊 —— 与 .contact-btn 的圆角语言一致 */
+  background: rgba(var(--bg-2-rgb), .72);
+
+  /* 毛玻璃：与「关于」弹窗同款处理。加 -webkit- 前缀兜底（Safari）。 */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-rest);
+
+  font-family: var(--f-cn);
+  font-size: .72rem;
+  letter-spacing: .04em;
+  color: rgb(var(--fg-alt-rgb));
+  white-space: nowrap;
+
+  /* 不进 Tab 序列、不挡点击：它是纯展示信息，不是控件。
+     ⚠️ 与「不挡住内容」直接相关 —— pointer-events:none 之后，
+        即使它视觉上压在某个链接上，鼠标事件也会**穿透**到下面的链接上。
+        也就是说「视觉重叠」不再等于「不可点」。（探针有断言验这条。） */
+  pointer-events: none;
+  user-select: none;
+
+  opacity: 1;
+  transition: bottom .22s var(--ease), opacity .22s var(--ease);
+}
+
+/* 兼容：旧版用 .is-off 淡出，现在改成「抬升让位」（见 app.js）。
+   保留这条是为了万一别处还在打这个类时不至于没样式 —— 但它不再是主路径。 */
+.visits.is-off { opacity: 0; }
+
+.visits .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: rgb(var(--fg-weak-rgb));
+}
+.visits .ico svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 数字用衬线（与时钟、脚注同族），等宽数字避免逐位跳动 */
+.visits-num {
+  font-family: var(--f-serif);
+  font-size: .95em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-rgb));
+}
+
+.visits-label { color: rgb(var(--fg-weak-rgb)); }
+
+/* 今日新增：更弱一档，作为「次要信息」跟在后面 */
+.visits-today {
+  color: rgb(var(--fg-weak-rgb));
+  opacity: .72;
+  font-size: .94em;
+}
+.visits-today:empty { display: none; }
+
+/* 窄屏：缩小内距，省横向空间（但仍固定、仍可见） */
+@media (max-width: 620px) {
+  .visits {
+    left: 10px;
+    /* ⚠️ 这里也要带上 --visits-lift，否则窄屏下抬升逻辑失效
+       （媒体查询会覆盖上面的 calc） */
+    bottom: calc(10px + var(--visits-lift, 0px));
+    padding: 5px 9px 5px 8px;
+    font-size: .68rem;
+    gap: .38em;
+  }
+  /* 手机上「今日 +N」省掉 —— 横向空间紧张，且当日数字在手机上意义弱 */
+  .visits-today { display: none; }
+}
+
+/* 降低动效偏好：不做位移动画，只保留透明度 */
+@media (prefers-reduced-motion: reduce) {
+  .visits { transition: opacity .15s linear; }
+}
+
+/* ---------------------------------------------------------
    无障碍两件套（2026-10-08 补）：跳到主内容 + 仅供读屏的文本。
    --------------------------------------------------------- */
 
