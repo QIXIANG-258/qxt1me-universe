@@ -112,55 +112,63 @@ function ok(c, n, e) {
   const pb = JSON.parse(posBefore);
   ok(pb.pos === "fixed", "CSS position 是 fixed", pb.pos);
 
-  /* ⚠️ 这条断言要小心：本徽标有一个**故意的**纵向位移 ——
-     与页脚重叠时会抬升让位（见 ③b）。所以不能简单地断言「滚动前后 top 完全相同」，
-     否则会把那个特性判成 bug（第一版就是这么误报的）。
-     ⚠️ 还有一个坑：抬升带 .22s transition，滚动后**必须等它落定**再量，
-        否则量到的是动画中间帧（实测 500ms 等待仍会读到 4px 的残留位移）。
-     做法：轮询到「距底边偏移在两次采样间稳定」再取值。 */
+  /* ★ 作者口径（2026-10-11 澄清）：「访问人数是固定在我们视角的，而不是网页上，
+     相当于它不是网页上面的元素，而是我们滑动时在屏幕上的元素」。
+     → 判据就是**全程在视口里一动不动**：任何滚动位置下 top/left/距底都必须相同。
+
+     ⚠️ 这条断言的历史很值得留档，因为前后写错过两种相反的：
+       · 更早的版本有「与页脚重叠时抬升让位」—— 那是**会移动**的（实测飘 136px），
+         当时为了迁就它，断言被写成「只在抬升量不变的两点间比较」，
+         等于**把错误的方向写进了判据**（判据迁就实现）。
+       · 更早还有一版为了避开 .22s 过渡，写死 sleep(500)，读到动画中间帧。
+     现在抬升逻辑已整体移除，位置纯由 CSS `position:fixed` 决定，
+     所以可以恢复最严格、也最直白的判据：**逐档滚动，视口坐标极差必须为 0**。 */
   async function readPos() {
     return JSON.parse(await ev(`(function(){
       var v=document.getElementById('visits');var r=v.getBoundingClientRect();
       return JSON.stringify({top:Math.round(r.top), left:Math.round(r.left),
+        right:Math.round(r.right),
         bottomGap:Math.round(innerHeight-r.bottom), scrollY:Math.round(scrollY),
-        absTop:Math.round(r.top+scrollY),
-        lift:getComputedStyle(v).getPropertyValue('--visits-lift').trim()||'0px'});
+        absTop:Math.round(r.top+scrollY)});
     })()`));
   }
-  async function settlePos() {
-    let prev = null;
-    for (let i = 0; i < 40; i++) {           // 最多 2s
-      const cur = await readPos();
-      if (prev && prev.top === cur.top && prev.bottomGap === cur.bottomGap) return cur;
-      prev = cur;
-      await sleep(50);
-    }
-    return await readPos();
-  }
 
-  await ev("window.scrollTo(0, 60); 1");
-  const at60 = await settlePos();
-  await ev("window.scrollTo(0, 90); 1");
-  const at90 = await settlePos();
-  console.log("    scrollY=" + at60.scrollY + ": 视口 top=" + at60.top + " 距底=" + at60.bottomGap +
-              " 抬升=" + at60.lift + " 文档绝对=" + at60.absTop);
-  console.log("    scrollY=" + at90.scrollY + ": 视口 top=" + at90.top + " 距底=" + at90.bottomGap +
-              " 抬升=" + at90.lift + " 文档绝对=" + at90.absTop);
-  ok(at90.scrollY > at60.scrollY, "两次采样间确实滚动了（否则断言无意义）",
-     at60.scrollY + " → " + at90.scrollY);
-  /* 抬升量相同 ⇒ 没有触发新的让位 ⇒ 两次的视口坐标应当完全一致 */
-  ok(at60.lift === at90.lift,
-     "两次采样的抬升量相同（说明这一段没有触发新的让位，可直接比较视口坐标）",
-     at60.lift + " vs " + at90.lift);
-  if (at60.lift === at90.lift) {
-    ok(Math.abs(at90.top - at60.top) <= 1 && Math.abs(at90.left - at60.left) <= 1 &&
-       Math.abs(at90.bottomGap - at60.bottomGap) <= 1,
-       "★ 滚动 30px 后视口坐标不变（真的固定在视窗，不随滑动移动）",
-       "距底 " + at60.bottomGap + "→" + at90.bottomGap);
-    ok(Math.abs((at90.absTop - at60.absTop) - (at90.scrollY - at60.scrollY)) <= 2,
-       "★ 相对文档的绝对位置随滚动等量变化（证明它没跟着文档走）",
-       "绝对 " + at60.absTop + "→" + at90.absTop);
+  /* 沿整条滚动区间取多档（不是只取两点）—— 「固定在视角」要全程成立 */
+  const maxScroll = await ev("Math.max(0, document.documentElement.scrollHeight - innerHeight)");
+  const STEPS = 6;
+  const samples = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const y = Math.round(maxScroll * i / STEPS);
+    await ev("window.scrollTo(0, " + y + "); 1");
+    await sleep(350);
+    samples.push(await readPos());
   }
+  console.log("    可滚 " + maxScroll + "px，采 " + samples.length + " 档：");
+  for (const s of samples) {
+    console.log("      scrollY=" + String(s.scrollY).padStart(4) +
+                "  视口 top=" + String(s.top).padStart(4) +
+                "  距底=" + String(s.bottomGap).padStart(4) +
+                "  文档绝对=" + s.absTop);
+  }
+  const tops = samples.map((s) => s.top);
+  const gaps = samples.map((s) => s.bottomGap);
+  const lefts = samples.map((s) => s.left);
+  const spreadTop = Math.max(...tops) - Math.min(...tops);
+  const spreadGap = Math.max(...gaps) - Math.min(...gaps);
+  const spreadLeft = Math.max(...lefts) - Math.min(...lefts);
+  ok(samples[samples.length - 1].scrollY > 0,
+     "确实发生了滚动（否则这条断言没意义）",
+     "最大 scrollY=" + samples[samples.length - 1].scrollY);
+  ok(spreadTop === 0 && spreadGap === 0 && spreadLeft === 0,
+     "★ 全程滚动中视口坐标**一动不动**（极差恒为 0 —— 真正固定在屏幕上）",
+     "top极差=" + spreadTop + " 距底极差=" + spreadGap + " left极差=" + spreadLeft);
+  /* 反向：相对文档的绝对位置必须随滚动等量变化 —— 证明它没跟着文档走 */
+  const dAbs = samples[samples.length - 1].absTop - samples[0].absTop;
+  const dScroll = samples[samples.length - 1].scrollY - samples[0].scrollY;
+  ok(Math.abs(dAbs - dScroll) <= 2,
+     "★ 相对文档的绝对位置随滚动等量变化（证明它没跟着文档走）",
+     "绝对 " + samples[0].absTop + "→" + samples[samples.length - 1].absTop +
+     "，scrollY " + samples[0].scrollY + "→" + samples[samples.length - 1].scrollY);
 
   console.log("\n── ③ 不挡住内容：两个层面都要验 ──");
   /* ③a 交互层面：徽标必须不吃鼠标事件（pointer-events:none），
@@ -182,81 +190,81 @@ function ok(c, n, e) {
   console.log("    徽标中心点最上层元素：" + th.hit);
   ok(th.isSelf === false, "★ 鼠标命中的不是徽标本身（实测穿透生效）", JSON.stringify(th));
 
-  /* ③b 视觉层面：与页脚重叠时必须**让位**（抬到页脚之上），而不是消失。
-     实测背景：1440×900 下文档高 1036 / 视口 900，页脚 footTop=869 一直在视窗里；
-     徽标 [858,892] 与页脚 [869,1036] 相交 23px。若「相交就隐藏」，
-     这个最常见尺寸就永远看不到徽标（第一版就是这么写的，探针抓到过）。 */
+  /* ③b 滚到底时徽标确实会压到页脚 —— 这是**已知且接受**的取舍。
+     作者口径（2026-10-11 澄清）：「访问人数是固定在我们视角的，而不是网页上，
+     相当于它不是网页上面的元素，而是我们滑动时在屏幕上的元素」。
+     所以**不再抬升让位**；重叠靠 `pointer-events:none` 保证「不影响点击」。
+
+     ⚠️ 这一节历史上的断言是「抬升后与页脚不相交」—— 那是**按错误的实现写的判据**
+        （判据迁就实现）。现在改成断言「位置不动 + 重叠不影响点击」，
+        把取舍本身钉住：若有人想「顺手把重叠也修掉」，这些断言会提醒他
+        那是**故意的**，修它就会破坏「固定」这个更本质的要求。 */
   await ev("window.scrollTo(0, document.body.scrollHeight); 1");
   await sleep(900);
-  const liftState = await ev(`(function(){
+  const ov = JSON.parse(await ev(`(function(){
     var v=document.getElementById('visits');
     var f=document.querySelector('.foot');
     var vr=v.getBoundingClientRect(), fr=f.getBoundingClientRect();
     return JSON.stringify({
-      vTop:Math.round(vr.top), vBottom:Math.round(vr.bottom),
+      vTop:Math.round(vr.top), vBottom:Math.round(vr.bottom), vLeft:Math.round(vr.left),
       fTop:Math.round(fr.top),
       opacity: parseFloat(getComputedStyle(v).opacity),
-      lift: getComputedStyle(v).getPropertyValue('--visits-lift').trim() || '0px',
       overlapY: vr.bottom > fr.top && vr.top < fr.bottom,
-      overlapX: vr.left < fr.right && vr.right > fr.left
+      overlapX: vr.left < fr.right && vr.right > fr.left,
+      bottomGap: Math.round(innerHeight - vr.bottom),
+      liftVar: getComputedStyle(v).getPropertyValue('--visits-lift').trim()
     });
-  })()`);
-  const ls = JSON.parse(liftState);
-  console.log("    滚到底：徽标 [" + ls.vTop + "," + ls.vBottom + "]  页脚 top=" + ls.fTop +
-              "  抬升=" + ls.lift + "  opacity=" + ls.opacity);
-  ok(!(ls.overlapX && ls.overlapY),
-     "★ 滚到底时徽标与页脚不相交（让位生效，未盖住页脚）",
-     JSON.stringify({ ox: ls.overlapX, oy: ls.overlapY }));
-  ok(ls.vBottom <= ls.fTop,
-     "★ 徽标底边在页脚顶边之上（真的抬上去了）",
-     "vBottom=" + ls.vBottom + " <= fTop=" + ls.fTop);
-  ok(ls.opacity > 0.85,
-     "★ 让位方式是**抬升**而不是隐藏（滚到底仍可见）", "opacity=" + ls.opacity);
+  })()`));
+  console.log("    滚到底：徽标 [" + ov.vTop + "," + ov.vBottom + "]  页脚 top=" + ov.fTop +
+              "  距底=" + ov.bottomGap + "  opacity=" + ov.opacity);
+  ok(ov.opacity > 0.85,
+     "★ 滚到底时徽标**仍然可见**（不因与页脚重叠而隐藏）", "opacity=" + ov.opacity);
+  ok(Math.abs(ov.bottomGap - 14) <= 1,
+     "★ 滚到底时位置与页顶时**完全一致**（距底仍是 14px，没有为避让而移动）",
+     "距底=" + ov.bottomGap);
+  ok(ov.liftVar === "",
+     "★ 已无抬升变量（--visits-lift 彻底移除；走回头路会在这里报红）",
+     JSON.stringify(ov.liftVar));
 
-  /* 回到顶部：抬升量应当**按几何重新算**，而不是残留。
-     ⚠️ 注意不能断言「归零」—— 1440×900 这个尺寸下文档高仅 1036px、视口 900px，
-        页脚 nearly 一直在视窗里，所以滚回顶部**仍然需要抬升**（这是正确行为）。
-        真正该断言的是：抬升后**不重叠**，且抬升量与几何自洽。 */
-  await ev("window.scrollTo(0,0); 1");
-  await sleep(900);
-  const backState = await ev(`(function(){
-    var v=document.getElementById('visits');
-    var f=document.querySelector('.foot');
-    var vr=v.getBoundingClientRect(), fr=f.getBoundingClientRect();
-    return JSON.stringify({ bottom:Math.round(innerHeight-vr.bottom),
-      vBottom:Math.round(vr.bottom), fTop:Math.round(fr.top),
-      lift: getComputedStyle(v).getPropertyValue('--visits-lift').trim() || '0px',
-      overlapY: vr.bottom > fr.top && vr.top < fr.bottom,
-      opacity: parseFloat(getComputedStyle(v).opacity) });
-  })()`);
-  const bs = JSON.parse(backState);
-  console.log("    滚回顶部：" + JSON.stringify(bs));
-  ok(bs.opacity > 0.85, "滚回顶部后徽标可见", "opacity=" + bs.opacity);
-  /* 有抬升就必须已经让开；没有抬升就必须本来就不重叠 —— 两者都算自洽 */
-  const liftVal = parseFloat(bs.lift) || 0;
-  ok(liftVal > 0 ? !bs.overlapY : true,
-     "★ 抬升量与重叠状态自洽（抬了就一定不重叠）",
-     "lift=" + bs.lift + " overlapY=" + bs.overlapY);
-  ok(liftVal === 0 || Math.abs(bs.bottom - 14 - liftVal) <= 2,
-     "★ 抬升量与实际位置一致（距底 = 14 + lift）",
-     "距底=" + bs.bottom + " 应为 14+" + liftVal + "=" + (14 + liftVal));
+  /* 重叠若存在，必须靠穿透保证可点 —— 这是取舍成立的前提 */
+  if (ov.overlapX && ov.overlapY) {
+    const clickable = JSON.parse(await ev(`(function(){
+      var v=document.getElementById('visits');
+      var vr=v.getBoundingClientRect();
+      var f=document.querySelector('.foot');
+      var fr=f.getBoundingClientRect();
+      var x=Math.round(vr.left+vr.width/2);
+      var y=Math.round(Math.max(vr.top+2, fr.top+2));
+      var el=document.elementFromPoint(x,y);
+      return JSON.stringify({ x:x, y:y, hitTag: el?el.tagName:null,
+        hitInFoot: el ? !!el.closest('.foot') : false,
+        hitIsBadge: el===v || v.contains(el) });
+    })()`));
+    console.log("    重叠区取点 (" + clickable.x + "," + clickable.y + ") 命中：" +
+                clickable.hitTag);
+    ok(clickable.hitIsBadge === false,
+       "★ 重叠区鼠标命中的不是徽标（穿透生效 ⇒ 页脚照样可点，取舍成立）",
+       JSON.stringify(clickable));
+  } else {
+    console.log("    （本尺寸下徽标与页脚不重叠；穿透已由 ③a 独立验过）");
+  }
 
-  /* 另找一个「页脚不在视窗内」的尺寸，验抬升确实归零 */
+  /* 换一个更高的视口：位置必须**一模一样**（固定是相对视口底，与内容长度无关） */
   await send("Emulation.setDeviceMetricsOverride",
     { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await sleep(1000);
   const tall = JSON.parse(await ev(`(function(){
     var v=document.getElementById('visits');
-    var f=document.querySelector('.foot');
-    var vr=v.getBoundingClientRect(), fr=f.getBoundingClientRect();
+    var vr=v.getBoundingClientRect();
     return JSON.stringify({ bottom:Math.round(innerHeight-vr.bottom),
-      lift:getComputedStyle(v).getPropertyValue('--visits-lift').trim()||'0px',
-      fTop:Math.round(fr.top), vh:innerHeight });
+      left:Math.round(vr.left),
+      fTop:Math.round(document.querySelector('.foot').getBoundingClientRect().top),
+      vh:innerHeight });
   })()`));
-  console.log("    1280×800（页脚在折叠线下）：" + JSON.stringify(tall));
-  ok((parseFloat(tall.lift) || 0) === 0 && Math.abs(tall.bottom - 14) <= 2,
-     "★ 页脚不在视窗内时不抬升（回到 14px 基准位）",
-     "距底=" + tall.bottom + " lift=" + tall.lift);
+  console.log("    1280×800：" + JSON.stringify(tall));
+  ok(Math.abs(tall.bottom - 14) <= 2 && Math.abs(tall.left - 14) <= 2,
+     "★ 换视口后仍贴左下角 14px（固定相对视口，与内容长度无关）",
+     "距底=" + tall.bottom + " left=" + tall.left);
 
   console.log("\n── ④ 与网站风格搭配：零彩度 + 令牌一致 ──");
   const style = await ev(`(function(){

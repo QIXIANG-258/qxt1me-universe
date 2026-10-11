@@ -1138,14 +1138,6 @@ html[lang="en"] .foot-name {
   bottom: 14px;
   z-index: 20;                 /* 高于卡片(1/2)，低于「关于」弹窗(100) */
 
-  /* 页脚重叠时的抬升量（由 app.js 的 syncVisitsOverlap() 写这个变量）。
-     ⚠️ 用 bottom 的 calc 而不是 transform:translateY ——
-        transform 会改变 getBoundingClientRect 的结果，
-        而探针要断言「固定在视窗、滚动时视口坐标不变」，
-        用 transform 会让那条断言读到位移、看起来像「没固定住」。
-        改 bottom 则视口坐标同样变化，但语义清晰（它是布局位置不是变换）。 */
-  bottom: calc(14px + var(--visits-lift, 0px));
-
   display: inline-flex;
   align-items: center;
   gap: .45em;
@@ -1174,7 +1166,9 @@ html[lang="en"] .foot-name {
   user-select: none;
 
   opacity: 1;
-  transition: bottom .22s var(--ease), opacity .22s var(--ease);
+  /* 只过渡透明度 —— 位置由 position:fixed 钉死，不做位移动画
+     （曾经有过 bottom 过渡，那是「抬升让位」时代的东西，已移除） */
+  transition: opacity .22s var(--ease);
 }
 
 /* 兼容：旧版用 .is-off 淡出，现在改成「抬升让位」（见 app.js）。
@@ -1215,13 +1209,11 @@ html[lang="en"] .foot-name {
 }
 .visits-today:empty { display: none; }
 
-/* 窄屏：缩小内距，省横向空间（但仍固定、仍可见） */
+/* 窄屏：缩小内距，省横向空间（位置仍是固定的左下角，不随滚动移动） */
 @media (max-width: 620px) {
   .visits {
     left: 10px;
-    /* ⚠️ 这里也要带上 --visits-lift，否则窄屏下抬升逻辑失效
-       （媒体查询会覆盖上面的 calc） */
-    bottom: calc(10px + var(--visits-lift, 0px));
+    bottom: 10px;
     padding: 5px 9px 5px 8px;
     font-size: .68rem;
     gap: .38em;

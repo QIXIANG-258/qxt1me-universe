@@ -530,9 +530,6 @@
       visitsEl.hidden = false;
       visitsEl.setAttribute("title", visitsEl.getAttribute(
         lang === "en" ? "data-en-title" : "data-zh-title") || "");
-      /* ⚠️ 显示之后必须重算一次让位 —— hidden 时 getBoundingClientRect 全是 0，
-         那一刻算出来的高度是 0，会把「本该抬升」误判成「不用抬」 */
-      if (typeof computeLift === "function") computeLift();
     }
 
     function loadVisits() {
@@ -560,67 +557,30 @@
       if (lastVisits) renderVisits(lastVisits);
     });
 
-    /* ① 与页脚**真重叠**时 → 抬到页脚之上（让位，而不是隐藏）。
+    /* ★ 2026-10-11 改：**彻底移除抬升逻辑**，让徽标真正钉死在屏幕左下角。
 
-       ⚠️ 三版都踩过坑，全部记下来 —— 这个「看似简单」的需求其实很容易写错：
-          v1「页脚可见就隐藏」→ 1440×900 下永远隐藏
-             （该尺寸文档高仅 1036px、视口 900px，页脚 footTop=869 一直在视窗里）。
-          v2「按当前矩形算抬升」→ 拿到的是「已经抬过」的位置，
-             抬升量在滚动中自我累加（实测 71px→83px→126px→30px 来回跳）。
-          v3（定稿）**只在滚动停止后、以明确的基准计算一次**，且用
-             「徽标底边与页脚顶边的**固定差值**」反推，避免读自己的输出。
+       作者原话：「访问人数是固定在我们视角的，而不是网页上，
+       相当于它不是网页上面的元素，而是我们滑动时在屏幕上的元素」。
 
-       定稿逻辑：
-         ① 用一个**不随滚动变化的基准**——徽标的「未抬升底边」= 视口高 - 基准偏移。
-            基准偏移就是 CSS 里的 14px（窄屏 10px），它恒定。
-         ② 需要的抬升 = max(0, 页脚顶边距视口底的距离不足量)
-            = max(0, (视口高 - fr.top) - 基准偏移 + 间隙)
-         ③ 这个式子只依赖 fr.top，**不依赖徽标自己的位置** → 不可能自我迭代。
-       再配合滚动结束后才计算（rAF 节流 + 60ms 静置），滚动的中间帧不会来回抖。 */
-    var footEl = $(".foot");
-    var lastLift = -1;
-    var settleTimer = null;
+       前一版做的是「与页脚重叠时抬起来让位」—— 那让徽标在滚动中**飘移了 136px**
+       （实测 scrollY 0→136 时视口 top 从 823 走到 687）。
+       那满足「不挡页脚」，但违背了「固定在我们视角」这个更本质的要求：
+       用户要的是**屏幕上不动的元素**，不是「会自己找空位的元素」。
 
-    /* 徽标未抬升时距视口底边的基准偏移（与 CSS 一致） */
-    function baseOffset() {
-      return window.matchMedia("(max-width: 620px)").matches ? 10 : 14;
-    }
+       现在的取舍（明确写出来，便于以后回看）：
+         · 徽标完全固定 → 滚到底时它会盖住页脚的一角
+         · 但 `pointer-events:none` 让它**不吃点击**，页脚上的链接照样可点
+         · 而且它只盖住页脚**文字的左端一小块**（左侧联系方式是图标+文字，
+           右下角的落款「universe / 憩想 · 个人站群总入口」不受影响）
+       即：用「视觉上轻微重叠页脚左角」换「屏幕上绝对不动」——这正是作者要的。
 
-    function computeLift() {
-      if (visitsEl.hidden || !footEl) return;
-      var fr = footEl.getBoundingClientRect();
-      var gap = 12;
-      var vr = visitsEl.getBoundingClientRect();
-      var h = vr.height || 32;
-      var base = baseOffset();          /* 未抬升时徽标距视口底的偏移 */
-      /* 未抬升时：徽标底边距视口底 = base，即底边在 y = innerHeight - base。
-         要让它**整体**落在页脚顶边之上并留 gap：
-             需要抬升 >= (innerHeight - base) - fr.top + gap
-         ⚠️ 这里曾经写错：把「徽标高度 h」也算进去，得到
-            `h + base + gap - (innerHeight - fr.top)`，实测恒为负 → 永不抬升。
-            正确式子里**不该出现 h** —— 因为「底边抬到页脚之上」本身就是判据，
-            高度只影响顶边（它自然跟着上移）。 */
-      var need = (window.innerHeight - base) - fr.top + gap;
-      var lift = need > 0 ? Math.ceil(need) : 0;
-      if (lift !== lastLift) {
-        lastLift = lift;
-        if (lift > 0) visitsEl.style.setProperty("--visits-lift", lift + "px");
-        else visitsEl.style.removeProperty("--visits-lift");
-      }
-    }
-
-    function scheduleCompute() {
-      /* 滚动结束后静置 60ms 再算 —— 中间帧不参与，避免来回抖 */
-      if (settleTimer) clearTimeout(settleTimer);
-      settleTimer = setTimeout(computeLift, 60);
-    }
-
-    if (footEl) {
-      window.addEventListener("scroll", scheduleCompute, { passive: true });
-      window.addEventListener("resize", scheduleCompute, { passive: true });
-      computeLift();
-      setTimeout(computeLift, 0);
-    }
+       ⚠️ 历史（别再走回头路）：抬升逻辑前后改过三版，
+          v1「页脚可见就隐藏」→ 1440×900 下永远隐藏（文档高 1036 < 视口？ 否，
+             是页脚 footTop=869 一直落在视窗内）；
+          v2「按当前矩形算」→ 自我累加，71→83→126→30px 来回跳；
+          v3 闭式解 → 数值稳定了，但**方向本身就错**（它让元素跟着内容走）。
+          教训：先确认「要求到底是固定还是自适应」，再动手写。 */
+    /* 无 JS 参与：位置完全由 CSS 的 .visits{position:fixed} 决定。 */
 
     loadVisits();
   }
