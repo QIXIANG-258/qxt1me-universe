@@ -18,7 +18,9 @@
 
    防刷（务实而非严密）：
      · 同一 IP 同日只计一次 —— 用 KV 的 `seen:<日期>:<IP哈希>` 键，TTL 到当日结束
-     · IP 只存**哈希**不存明文（本站零追踪原则；哈希只为去重，不可反查）
+     · IP 只存**哈希**不存明文（本站零追踪原则）。该哈希是**假名化的去重
+       标识**，不是「不可反查」的匿名值 —— 理由见下面 ipHash 的注释，别把
+       措辞写过头。
      · 计数本身照旧每次都读，所以刷新页面数字不会跳（同日同 IP 不重复累加）
 
    KV 键设计：
@@ -37,15 +39,29 @@ function localDate(now) {
   return d.toISOString().slice(0, 10);
 }
 
-/* 距当日 24:00（站点本地）还有多少秒 —— 用作去重键的 TTL */
+/* 距当日 24:00（站点本地）还有多少秒 —— 用作去重键的 TTL。
+   ⚠️ 不能简单用 `ceil(local/dayMs)*dayMs` 求「下一个整日边界」：当 local 恰好
+   整除 dayMs（即恰好本地 00:00:00.000）时 next === local，差额为 0，会被下面的
+   兜底值变成 **60 秒** —— 一秒之后就跨了午夜，从没打算这么快失效。
+   所以先取「当日 00:00」再 +1 天，永远得到一个真正的未来时刻。
+   真实 KV 的 expirationTtl 上限是 1 年，这里的上界约 24 小时，安全。 */
 function secondsUntilLocalMidnight(now) {
   const local = now + TZ_OFFSET_MS;
   const dayMs = 24 * 60 * 60 * 1000;
-  const next = Math.ceil(local / dayMs) * dayMs;
+  const dayStart = Math.floor(local / dayMs) * dayMs;   // 当日 00:00（本地）
+  const next = dayStart + dayMs;                        // 次日 00:00（本地）
   return Math.max(60, Math.floor((next - local) / 1000));
 }
 
-/* IP → 短哈希（FNV-1a）。只为当日去重，不可反查。 */
+/* IP → 短哈希（FNV-1a）。
+
+   ⚠️ 这是**假名化的去重标识**，不是「不可反查」的匿名值 —— 措辞别写过头：
+     · 盐（"uv-salt-2026::"）是**源码里的公开字面量**，不是密钥；
+     · 只用 SHA-256 摘要的前 8 字节，再折叠成 **32 位**（约 43 亿种）——
+       摘要空间远小于 SHA-256 全长，碰撞概率显著上升；
+     · IPv4 候选空间本就有限（约 37 亿），已知候选可用同一盐穷举反查。
+   它唯一的用途是「同一 IP 在同一天内得到同一个键」，够用即可。
+   若将来真需要抗反查，应改为 HMAC（密钥放 Worker secret）+ 全长摘要。 */
 async function ipHash(ip) {
   const data = new TextEncoder().encode("uv-salt-2026::" + ip);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -128,12 +144,25 @@ export default {
         counted = true;
       }
     } catch (e) {
-      /* KV 抖动不应该让页面报错 —— 计数失败就退回只读结果 */
+      /* KV 抖动不应该让页面报错 —— 计数失败就退回只读结果。
+         ⚠️ 必须同时给出**失败状态码**：只返回 200 + ok:false 是不够的，
+         因为前端的 fetch 判据天然按 HTTP 状态分支（r.ok），而一个 200 的
+         响应体里 total 仍是**数字 0**，会被当成「今天真的一位访客都没有」
+         渲染出来 —— 那就成了编数字，与「不编造数字」的承诺相反。
+         5xx 让它走 catch 分支：徽标保持隐藏。 */
       const c = await readCounts(env, date).catch(() => ({ total: 0, today: 0, days: 0 }));
-      return json({ ok: false, date: date, ...c, counted: false, error: "kv unavailable" });
+      return json({ ok: false, date: date, ...c, counted: false, error: "kv unavailable" }, 503);
     }
 
-    const c = await readCounts(env, date);
+    /* 读回最新计数。⚠️ 这一步**不能**省掉 catch —— 前面写成功了但读失败时，
+       未捕获的异常会让整个响应变成 Cloudflare 的 500 错误页（非 JSON），
+       前端拿到的是解析失败而不是可判别的失败。降级为 503 + JSON 更可控。 */
+    let c;
+    try {
+      c = await readCounts(env, date);
+    } catch (e) {
+      return json({ ok: false, date: date, counted: counted, error: "kv unavailable" }, 503);
+    }
     return json({ ok: true, date: date, ...c, counted: counted });
   },
 };

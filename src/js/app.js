@@ -509,6 +509,13 @@
 
      ★ 失败降级：接口不通就**整个徽标不显示**（保持 hidden）。
        不编造数字、不显示 «--»，宁可没有 —— 与天气那块的处理原则一致。
+
+     ⚠️ 「接口不通」有两种，**两种都要挡**（2026-10-11 修）：
+        ① HTTP 层失败（5xx / 网络断）→ 走 fetch 的 catch；
+        ② 业务层失败（**HTTP 200 但 ok:false**，如 KV 故障）→ 响应体里
+           total 仍是数字 0，若只判 typeof total === "number" 就会把
+           「查询失败」渲染成「今天一位访客都没有」。所以判据里加了 `d.ok`。
+       服务端也同时返回了失败状态码（两道防线），见 worker/index.js。
      --------------------------------------------------------- */
   var visitsEl = $("#visits");
 
@@ -520,6 +527,12 @@
 
     function renderVisits(d) {
       if (!d || typeof d.total !== "number") return;
+      /* ⚠️ 必须同时判 `d.ok`：接口在 KV 故障时会**照旧返回 JSON**（带 ok:false
+         与三个 0 值），若只看 total 是不是数字，就会把「查询失败」当成
+         「今天真的一位访客都没有」渲染出来 —— 那是编数字。
+         服务端现在也同时返回 503，两道防线都要有：状态码挡住大多数，
+         ok 标志挡住「200 但业务失败」这类漏网。 */
+      if (d.ok === false) return;
       /* 千分位：数字大了更好读。toLocaleString 在 Worker/浏览器都可用。 */
       $total.textContent = d.total.toLocaleString("en-US");
       /* 今日新增只在「今天确实有人来过」时显示，且不喧宾夺主 */
@@ -541,6 +554,8 @@
       })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
         .then(function (d) {
+          /* 业务层失败（HTTP 200 但 ok:false）同样视为不可用 —— 见 renderVisits 注释 */
+          if (!d || d.ok === false) return Promise.reject(new Error("business failure"));
           lastVisits = d;
           renderVisits(d);
         })
