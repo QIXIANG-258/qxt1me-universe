@@ -46,6 +46,7 @@ STATIC_PORT = 8802
 SUITE = [
     ("probe_universe.js",        "static",  True),
     ("probe_interact.js",        "static",  True),
+    ("probe_engine_route.js",    "static",  True),
     ("probe_visits.js",          "api",     False),
     ("probe_geo.js",             "online",  False),
     ("probe_favicon.js",         "static",  True),

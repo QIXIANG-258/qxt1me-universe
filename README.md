@@ -46,8 +46,13 @@ worker/
   index.js          **唯一的服务端代码**：/api/visits 访客计数（用 KV UV_VISITS）
 _tools/
   extract_fonts.py      从 blog 的 style.css 抽字体声明过来
-  probe_universe.js     浏览器验收探针（130 项 / 线上 139）
+  run_probes.py         分层单入口（static / api / online）
+  README-probes.md      探针套件说明与实测基线
+  probe_universe.js     浏览器验收探针（本地 138 项 / 线上 139）
   probe_visits.js       访客记录专项（25 项：固定 / 不挡内容 / 零彩度）
+  probe_engine_route.js 搜索引擎线路专项（22 项：判定真值表 / 前缀优先 / 提示条）
+  _inject_google_reachable.js 故障注入：伪造 google 可达，验另一条分支
+  _verify_hint_lang.js  提示条中英切换一致性
   _serve_with_headers.js 会读 _headers 的静态服务（本地就验安全头/缓存头）
 _shots/                 探针产出的截图与日志
 ```
@@ -108,7 +113,7 @@ blog 的实际层级是「**正文无衬线 + 标题衬线**」，不是整站�
 | 圆角 | `1em` / `0.5em` | `5px` / `4px` | blog 控件 `--r: 5px` |
 | 悬停 | 低透明度分类色叠一层 | **反色胶囊**（`--hl` 底 / `--hl-ink` 字） | blog 的 `::selection` 就是这一对，沿用同一语义 |
 | 时钟字号 | `5rem` 固定 | `clamp(3rem, 11vw, 5rem)` | 5rem 在窄屏会顶出横向滚动条 |
-| 搜索 | 仅 Google | `g:` / `b:` / `ddg:` 前缀 + `ph:` 直达摄影小站 | — |
+| 搜索 | 仅 Google | **按网络自动选线路**：直连得上 google → Google，否则 → 必应；另有 `g:` / `b:` / `ddg:` 前缀可强制指定，`ph:` 直达摄影小站 | 国内网络直连 google `000`（实测），写死 Google 等于搜索框对国内访客不可用 |
 | 布局 | 固定三栏（General / Social / Dev） | **单栏、一行式条目**（左图标 + 站名 …… 右说明） | 只有一个真站；三栏是硬凑，一行式把横向空间用起来 |
 | 主题 | 无 | 明暗双主题 + 中英双语，首帧防闪 | 与 blog 一致 |
 | 页脚 | 无 | 补一条落款 | — |
@@ -142,7 +147,41 @@ node _tools/probe_universe.js
 > 是线上就挂 `127.0.0.1:7897`（本机直连 `workers.dev` 与自定义域会失败）。
 > 用 `PROBE_PROXY` 可覆盖。
 
-### 访客记录专项（`_tools/probe_visits.js`，25 项）
+### 搜索引擎线路专项（`_tools/probe_engine_route.js`，22 项）
+
+2026-10-12 新增。搜索框默认引擎按**网络连通性**选：直连得上 google → Google，
+否则 → 必应（`src/js/app.js` 的 `engineFor()`，纯函数）。
+
+```bash
+set PROBE_URL=http://127.0.0.1:8802/
+node _tools/probe_engine_route.js
+```
+
+覆盖 6 组：判定真值表（`true→google` / `false`、`undefined`、`null→bing`）、
+引擎前缀表、**显式前缀优先于默认路由**（`g:` 在网络不通时也强制 Google）、
+本机真实探测结果与默认一致、提示条文案与实际默认一致 + **胶囊内无换行**、
+零彩度 / `aria-label` / 未横向溢出回归。
+
+> ⚠️ **必须做故障注入，否则等于没验**：本机（成都）google 直连 `000`，
+> 不注入就只能验到**必应这一条分支** —— 代码里写成恒返回 bing 也照样全绿。
+>
+> ```bash
+> node _tools/_inject_google_reachable.js   # 拦 *generate_204* 回一张 1×1 PNG
+> node _tools/_verify_hint_lang.js          # 提示条中英切换
+> ```
+>
+> 注入应答必须是 **HTTP 200 + 真实 PNG 实体**。实测三种形态：
+> `200 + 真实 PNG` → `Image.onload`；`200 + 空体` → `onerror`；
+> `204 + 空体` → `onerror`。即 `<img>` 的 onload 要求真的解码出一张图，
+> 空体不是「成功的空图片」而是**不合法的图片**。
+
+> ⚠️ **提示条的引擎名只能用文本节点承载**：`.shortcut-hints` 是 flex 容器，
+> 它的子元素一律被块级化（`<b>` / `<span>` 实测 computed `display` 都是
+> `block`），结果是胶囊内出现换行 —— 父胶囊 `innerText` 从
+> `直接回车 = 搜索（必应）` 变成 `直接回车 = 搜索\n（必应）`。
+> 所以 `index.html` 里 `.hint-plain` **内部只能有纯文本**，
+> 注释也要写在元素外面（HTML 注释是真实节点，会让 `childNodes` 多一个）。
+
 
 2026-10-10 新增。**必须打有 `/api/visits` 的地址**（`wrangler dev` 或线上）：
 

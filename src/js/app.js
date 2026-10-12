@@ -59,14 +59,120 @@
     "game:": G2048
   };
 
-  /* 搜索引擎前缀 */
+  /* ---------------------------------------------------------
+     搜索引擎前缀 + **按网络自动选线路**（2026-10-11 作者要求）
+
+     作者原话：「我们的搜索引擎似乎默认的是谷歌，不如两种线路，
+               国内网络连接的会使用 bing，国外的用谷歌」
+
+     === 为什么是「网络先选」，而不是「浏览器语言先选」 ===
+     我的第一直觉是「读 navigator.language，zh → 必应」。
+     **这条路是错的**，用本机实测就能证伪：
+     本机（成都、Chrome/Edge 中文）读到的不是 `zh-CN`，
+     而是 **`en-US`** —— 因为作者登录了 Google 账号、
+     浏览器开了「同步语言偏好」，语言列表被账号顺成了英文。
+     即 **语言 ≠ 网络位置**：一个中国人用英文界面、或一个
+     外国人在中国出差，语言判据都会给出相反的答案。
+     真需求说的是「国内**网络**」——那只有一件事说了算：
+     **这个网络到底连不连得上 google。** 所以只探测，不猜语言。
+
+     === 怎么探测（异步无法参与「回车就跳」）===
+     回车是同步路径，不能现探现用。做法是**页面加载时探一次、
+     把结果存下来**，回车时读缓存。
+       · 探测方式：`new Image()` 打 `https://www.google.com/generate_204`
+         —— 这个端点**没有任何 CORS 头**，用 fetch 会在跨国
+         预检上额外浪费几百毫秒；Image 不受 CORS 限制，
+         只需知道「成没成」。
+       · 成功 → google；出错 / 超时 → bing。
+       · **超时 2500ms**：穿墙时 google 通常要么很快通、要么
+         直接被 RST，真到 2.5 秒还没结果就是不可用。
+       · **探测期间回车**：按 bing 走（`googleReachable` 初值 false）。
+         理由是这个站群的作者与主要访客都在国内，且**万一判错**，
+         必应在两边都能打开、谷歌在国内打不开 —— 押必应的
+         失败代价更低。宁可慢一点，不要打不开。
+
+     ⚠️ 家族铁律「界面零彩度」在这里同样成立：**不给线路
+        加任何颜色标记**，不因为「选中谷歌」就点亮一个色块。
+        默认项只用一行 11px 灰字说明，不引强调色。
+     --------------------------------------------------------- */
   var ENGINES = {
     "g:": "https://www.google.com/search?q=",
     "b:": "https://www.bing.com/search?q=",
     "ddg:": "https://duckduckgo.com/?q="
   };
 
-  var DEFAULT_ENGINE = ENGINES["g:"];
+  /* 探测端点：/generate_204 成功返回 204 空体，是最省的连通性探针 */
+  var PROBE_URL = "https://www.google.com/generate_204";
+  var PROBE_TIMEOUT = 2500;
+
+  /* 探测结果。**初值 = false（用必应）**，见上文「探测期间回车」。
+     这个变量在页面加载时被异步改写，回车时读取。 */
+  var googleReachable = false;
+
+  /* 纯函数：把「可达性」映射到引擎名。单独抽出来是为了让探针
+     能给**两组真值**直接喂进去验，不必靠真的断网来测分支
+     （靠改网络测分支的探针，在 CI 或别人机器上跑不出第二种结果）。 */
+  function engineFor(reachable) {
+    return reachable === true ? "google" : "bing";
+  }
+
+  /* 探测 google 连通性，只回答 true/false，绝不抛错 */
+  function probeGoogle(cb) {
+    var settled = false;
+    var img = new Image();
+    var timer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      img.onload = img.onerror = null;
+      img.src = "";                       /* 中止在途请求 */
+      cb(false);
+    }, PROBE_TIMEOUT);
+
+    img.onload = function () {            /* 204 空体也算 load */
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cb(true);
+    };
+    img.onerror = function () {           /* RST / DNS 失败 / 被墙 */
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cb(false);
+    };
+    img.src = PROBE_URL;
+  }
+
+  probeGoogle(function (reachable) {
+    googleReachable = reachable;
+    /* 探测是异步的，结果可能晚于首帧。提示条上那个「默认」标记
+       是随引擎变的，所以探完要重渲染一次。
+       （不重渲染的话，提示条会永久停在探测前的 bing 文案上。） */
+    syncEngineHint();
+  });
+
+  /* 回车时用的「最终默认引擎 URL」 */
+  function defaultEngineUrl() {
+    return ENGINES[engineFor(googleReachable) === "google" ? "g:" : "b:"];
+  }
+
+  /* 关键词 → 目标 URL 的完整解析。抽成函数是为了让探针能直接
+     验「前缀优先于默认路由」这条分支，不必真的按键跳走。 */
+  function resolveQuery(query) {
+    var idx = query.indexOf(" ");
+    var prefix = idx === -1 ? query : query.slice(0, idx);
+    var rest = idx === -1 ? "" : query.slice(idx + 1).trim();
+
+    /* 站点直达：前缀命中即跳，不要求后面还有词 */
+    if (Object.prototype.hasOwnProperty.call(SITES, prefix)) return SITES[prefix];
+
+    /* 搜索引擎前缀：要有词才搜，否则退回默认引擎搜整串 */
+    if (Object.prototype.hasOwnProperty.call(ENGINES, prefix) && rest) {
+      return ENGINES[prefix] + encodeURIComponent(rest);
+    }
+
+    return defaultEngineUrl() + encodeURIComponent(query);
+  }
 
   var searchInput = $("#searchInput");
   if (searchInput) {
@@ -76,25 +182,41 @@
       var query = this.value.trim();
       if (query === "") return;
 
-      var idx = query.indexOf(" ");
-      var prefix = idx === -1 ? query : query.slice(0, idx);
-      var rest = idx === -1 ? "" : query.slice(idx + 1).trim();
-
-      /* 站点直达：前缀命中即跳，不要求后面还有词 */
-      if (Object.prototype.hasOwnProperty.call(SITES, prefix)) {
-        window.location.href = SITES[prefix];
-        return;
-      }
-
-      /* 搜索引擎前缀：要有词才搜，否则退回默认引擎搜整串 */
-      if (Object.prototype.hasOwnProperty.call(ENGINES, prefix) && rest) {
-        window.location.href = ENGINES[prefix] + encodeURIComponent(rest);
-        return;
-      }
-
-      window.location.href = DEFAULT_ENGINE + encodeURIComponent(query);
+      window.location.href = resolveQuery(query);
     });
   }
+
+  /* 提示条上「直接回车 = 搜索 ⟨引擎⟩」的引擎名。
+     两种语言下都要准：中文写「谷歌 / 必应」，英文写「Google / Bing」。
+     引擎是 JS 选的，所以这里**不能**用 data-zh/data-en 那套静态属性 ——
+     它的取值依赖运行时的网络探测结果，必须由 JS 生成。
+     语言切换时也要重渲染（见 applyLang 里的 uv:lang 监听）。
+
+     ⚠️ 实现上刻意**写成一个纯文本节点**，而不是往里面塞 <span>/<b>：
+        外层 .shortcut-hints span 是 inline-flex，它的子元素会被
+        块级化，胶囊内会出现换行、被撑成两行（实测：父胶囊 innerText
+        变成「直接回车 = 搜索\n（必应）」）。所以这里改的是
+        文本节点的 nodeValue，保证引擎名与前面的字在同一行。 */
+  function syncEngineHint() {
+    var host = document.querySelector(".hint-plain");
+    if (!host) return;
+    var isGoogle = engineFor(googleReachable) === "google";
+    var isEn = document.documentElement.lang === "en";
+    var name = isGoogle ? (isEn ? "Google" : "谷歌") : (isEn ? "Bing" : "必应");
+    var suffix = isEn ? " (" + name + ")" : "（" + name + "）";
+
+    /* 第一次调用时追加一个文本节点，之后只改它的值 —— 不再新建节点，
+       免得反复切语言时堆出一串文本节点。 */
+    var node = host.__engineNode;
+    if (!node || node.parentNode !== host) {
+      node = document.createTextNode(suffix);
+      host.appendChild(node);
+      host.__engineNode = node;
+    } else {
+      node.nodeValue = suffix;
+    }
+  }
+  syncEngineHint();
 
   /* ---------------------------------------------------------
      3. 中英切换
@@ -116,6 +238,10 @@
     if (langBtn) langBtn.textContent = lang === "en" ? "中" : "EN";
 
     updateClock();
+
+    /* 提示条上的默认引擎名是 JS 生成的（依赖网络探测结果），
+       data-zh/data-en 管不到 —— 这里补一次。 */
+    syncEngineHint();
 
     /* 广播语言切换：data-zh/data-en 覆盖不到的**JS 生成文本**
        （目前是天气的城市名与天气词）需要自己重渲染。 */
@@ -602,4 +728,20 @@
 
   /* 首帧内联脚本已经按 localStorage 改过 <html lang>，这里把文案补齐 */
   applyLang(document.documentElement.lang === "en" ? "en" : "zh");
+
+  /* ---------------------------------------------------------
+     验收用接口（供 _tools/probe_engine_route.js 使用）
+
+     ⚠️ 为什么不靠「真的断网 / 真的连上」来验两条分支：
+        那样探针在 CI、在别人机器上、在海外的机器上都只能跑出
+        一种结果，另一条分支等于没验过。这里把**判定逻辑**暴露
+        出来，让探针能把两组真值直接喂进去，两条分支都被覆盖；
+        而「本机真实探测到哪一边」再由 uvGoogleReachable() 单独报，
+        两者分开，互不掩盖。
+     --------------------------------------------------------- */
+  window.uvEngines = ENGINES;
+  window.uvEngineFor = engineFor;
+  window.uvGoogleReachable = function () { return googleReachable; };
+  window.uvDefaultEngine = function () { return engineFor(googleReachable); };
+  window.uvResolve = resolveQuery;
 })();

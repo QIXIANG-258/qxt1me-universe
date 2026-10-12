@@ -465,15 +465,22 @@ const SNAPSHOT = `(() => {
       source: `try { localStorage.setItem('uvLang','zh'); localStorage.setItem('uvTheme','dark'); } catch(e){}`,
     });
 
-    /* ---------- 网络台账：抓所有请求的 origin ---------- */
+    /* ---------- 网络台账：抓所有请求的 origin 与完整路径 ----------
+       origin 用于判「有没有引外站」；path 用于判「引的那个是不是
+       我们批准的那一个端点」（只比 origin 的话，任何 google.com 的
+       请求都能冒充引擎探针）。 */
     const origins = new Set();
+    const paths = [];
     const onReq = (m) => {
       if (m.method === "Network.requestWillBeSent") {
         try {
           const u = new URL(m.params.request.url);
           /* ⚠️ 只记 http/https。起始页 about:blank 的 origin 是字符串 "null"，
              不滤掉会稳定误报「有第三方请求」。 */
-          if (u.protocol === "http:" || u.protocol === "https:") origins.add(u.origin);
+          if (u.protocol === "http:" || u.protocol === "https:") {
+            origins.add(u.origin);
+            paths.push(u.origin + u.pathname);
+          }
         } catch (e) {}
       }
     };
@@ -946,11 +953,24 @@ const SNAPSHOT = `(() => {
        不是放开，而是**列出白名单并逐条命名**：
        再出现别的外站（哪怕是另一个天气源）依然会红。 */
     const WEATHER_API = /^https:\/\/api\.open-meteo\.com$/;
+    /* ★ 2026-10-11：搜索引擎线路选择要探一次 google 连通性
+       （见 app.js 的 probeGoogle），所以又多一个**作者批准的例外**。
+       ⚠️ 仍然不是放开：白名单逐条命名，再出现别的外站依然会红。
+       ⚠️ 只放行主机名，且**必须配合下面的正向确认** —— 否则这条会退化成
+          「永远通过」，将来探测被改成打别的站也不会被发现。 */
+    const ENGINE_PROBE = /^https:\/\/www\.google\.com$/;
     const thirdParty = [...origins].filter(
-      (o) => o !== selfOrigin && !CF_INJECTED.test(o) && !WEATHER_API.test(o));
+      (o) => o !== selfOrigin && !CF_INJECTED.test(o) &&
+             !WEATHER_API.test(o) && !ENGINE_PROBE.test(o));
     ok(thirdParty.length === 0,
-       "除平台注入与天气 API 外，无其它第三方请求",
+       "除平台注入、天气 API 与引擎探针外，无其它第三方请求",
        JSON.stringify(thirdParty));
+    /* 正向确认：引擎探针**确实打了 google 那个连通性端点**
+       （不是随便什么 google.com 的请求都能顶替） */
+    const probeCalled = paths.some((p) => /google\.com\/generate_204$/.test(p));
+    ok(probeCalled,
+       "确实请求了 google 连通性端点 /generate_204（白名单不是空的）",
+       "命中路径=" + JSON.stringify(paths.filter((p) => /google\.com/.test(p))));
     /* 正向确认：天气请求**确实发生了**（否则这条白名单会退化成摆设） */
     const wxCalled = [...origins].some((o) => WEATHER_API.test(o));
     const wxShown = await ev(`(() => {

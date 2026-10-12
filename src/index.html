@@ -146,9 +146,21 @@
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
       </i>
       <div class="shortcut-hints">
-        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.4-3.8-8.5S9.5 5.9 12 3.5z"/></svg></i> 直接回车 = 搜索</span>
+        <!-- ⚠️⚠️ .hint-plain 里**不能**放任何元素，也只能放纯文本 ——
+             用 JS 改它最后一个文本节点的 nodeValue 来更新引擎名。
+             原因是实测出来的：.shortcut-hints 是 flex 容器，**它的子元素
+             一律是 flex item、一律被块级化**（实测 <b> 的 computed display
+             是 block，不是 inline；<span> 同理）。结果是胶囊内出现换行：
+             父胶囊 innerText 从「直接回车 = 搜索（必应）」
+             变成「直接回车 = 搜索\n（必应）」—— 视觉上就是被撑成两行。
+
+             ⚠️ 注释也要写在**元素外面**：HTML 注释是真实节点
+             （nodeType 8），写在 .hint-plain 里会让 childNodes 多一个，
+             「反复切语言不堆节点」那条断言就会假红。 -->
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5s-1.3 6.1-3.8 8.5c-2.5-2.4-3.8-5.4-3.8-8.5S9.5 5.9 12 3.5z"/></svg></i> <span class="hint-plain">直接回车 = 搜索</span></span>
         <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/></svg></i> ph: 摄影小站</span>
         <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5h17v3H4z"/><path d="M5 10.5v9h14v-9"/><path d="M10 14h4"/></svg></i> gear: 器材库</span>
+        <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></i> g: 谷歌</span>
         <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></i> b: 必应</span>
         <span><i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></i> ddg: DuckDuckGo</span>
       </div>

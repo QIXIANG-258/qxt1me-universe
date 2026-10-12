@@ -10,7 +10,7 @@ python _tools\run_probes.py --list
 
 | 层 | 内容 | 什么时候跑 |
 |---|---|---|
-| `static` | 结构 / 配色 / 交互 / 场景 / 图标（8 套） | 改前端（不碰 Worker） |
+| `static` | 结构 / 配色 / 交互 / 场景 / 图标 / 引擎路由（9 套） | 改前端（不碰 Worker） |
 | `api` | `probe_visits.js`（打 `/api/visits`） | 改访客接口或 KV 逻辑 |
 | `online` | `probe_geo.js`（定位分支，必须线上） | 发布前 |
 
@@ -35,12 +35,29 @@ python _tools\run_probes.py --list
 2. **`NODE_PATH` 指向含 `ws` 的 node_modules** —— 脚本自动找三个候选位置，
    找不到就明确报「环境失败」而不是静默跳过全部。
 
-## 实测基线（2026-10-11）
+## 实测基线（2026-10-12）
 
 | 层 | 结果 |
 |---|---|
-| static | **8/8 rc=0** —— probe_universe 137/137、probe_interact 34/34、probe_favicon 30/30、probe_weather_fallback 10/10、probe_scene_light 30/30、probe_scene_contrast / probe_light_baseline / probe_layer_isolation 通过 |
+| static | **9/9 rc=0** —— probe_universe 138/138、probe_interact 34/34、probe_engine_route 22/22、probe_favicon 30/30、probe_weather_fallback 10/10、probe_scene_light 30/30、probe_scene_contrast / probe_light_baseline / probe_layer_isolation 通过 |
 | api | **1/1 rc=0** —— probe_visits **22/22**（打线上） |
 
-> 线上 `probe_universe.js` 是 **139/139**（比本地多 2 条 —— 本地跑不到
+> 线上 `probe_universe.js` 是 **139/139**（比本地多 1 条 —— 本地跑不到
 > `_headers` 相关判据）。要验线上就设 `PROBE_URL`。
+
+## 搜索引擎线路（`probe_engine_route.js`）
+
+搜索框默认引擎按**网络连通性**自动选：直连得上 google → Google，否则 → 必应。
+判定写在 `src/js/app.js` 的 `engineFor()`（纯函数，探针直接喂两组真值）。
+
+配套两个脚本，**不是**分层套件的常规成员，改路由时才手动跑：
+
+| 脚本 | 作用 |
+|---|---|
+| `_inject_google_reachable.js` | 故障注入：拦 `*generate_204*` 回一张 1×1 PNG，伪造「国外网络」，验另一条分支 |
+| `_verify_hint_lang.js` | 提示条中英切换下引擎名是否正确、且不堆节点 |
+
+> **为什么必须做注入**：本机（成都）google 直连 000，不注入就只能验到
+> **必应这一条分支** —— 只验一条分支的探针，代码里写成恒返回 bing 也照样全绿。
+> 注入应答必须是 **HTTP 200 + 真实 PNG 实体**：实测 `200 + 空体` 与
+> `204 + 空体` 都会走 `Image.onerror`（`<img>` 的 onload 要求真的解码出图）。
