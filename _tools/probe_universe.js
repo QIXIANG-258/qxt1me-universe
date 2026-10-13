@@ -748,13 +748,23 @@ const SNAPSHOT = `(() => {
     ok(!!ext && ext.hasH2 && ext.labelled,
        "「外站」板块有 H2 标题且与 nav 的 aria-labelledby 对应",
        JSON.stringify(ext && { hasH2: ext.hasH2, labelled: ext.labelled }));
-    ok(!!ext && ext.n === 4, "「外站」板块有 4 条链接", "实测 " + (ext && ext.n) + " 条");
+    /* ⚠️ 2026-10-12：原来这里写死 `ext.n === 4`。该写法的问题是 ——
+       作者每次加一条外站，探针都会红一次，而红的原因**不是站点坏了**，
+       是探针自己把「当前条目数」当成了契约。
+       契约应该是**结构性**的（是独立 nav 地标 + 每条都有图标/站名/说明），
+       不是「恰好 4 条」。改成下界断言：条目数不得少于初始的 4 条
+       （防止复制粘贴时误删），同时**逐条**校验结构仍由下面两条覆盖。 */
+    ok(!!ext && ext.n >= 4, "「外站」板块链接数不少于 4 条", "实测 " + (ext && ext.n) + " 条");
     ok(!!ext && ext.eachHasIcon && ext.eachHasLabel && ext.eachHasHint,
        "「外站」每条都有图标 + 站名 + 说明",
        JSON.stringify(ext && { i: ext.eachHasIcon, l: ext.eachHasLabel, h: ext.eachHasHint }));
     /* 站名用官方名，不翻译（作者 2026-10-08 明确）——
-       顺手钉住这四个名字，防止以后被"顺手翻译"掉。 */
-    const EXPECT_EXT = ['WorldVectorLogo', 'xicons', 'Pexels', 'SearchGal'];
+       顺手钉住这几个名字，防止以后被"顺手翻译"掉。
+       ⚠️ 2026-10-12 新增 anitabi / khinsider / acg.rip 三条后同步扩充。
+       这份清单只校验「列进去的名字原样出现」，**不**要求全集相等 ——
+       新增条目不会让本条假红，但仍能挡住把官方名翻译掉。 */
+    const EXPECT_EXT = ['WorldVectorLogo', 'xicons', 'Pexels', 'SearchGal',
+                        'Anitabi', 'KHInsider', 'acg.rip'];
     const gotNames = (ext && ext.names || []).map(s => s.trim());
     ok(EXPECT_EXT.every((n) => gotNames.includes(n)),
        "「外站」站名用各家官方名称（不翻译）",
