@@ -328,7 +328,7 @@
           （不是存码本身 —— 存码等于把码留在本地明文里，
            而且以后改码时旧访客会莫名其妙失效）。
      --------------------------------------------------------- */
-  var UNLOCK_CODE = "gis";
+  var UNLOCK_CODE = "sicaugis";
 
   var settingsBtn = $("#settingsBtn");
   var settingsModal = $("#settingsModal");

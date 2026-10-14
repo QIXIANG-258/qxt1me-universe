@@ -45,7 +45,7 @@ python _tools\run_probes.py --list
 | 探针 | 实测条数（2026-10-14） |
 |---|---|
 | `probe_universe.js` | 138/138 |
-| `probe_secret_code.js` | 72/72 |
+| `probe_secret_code.js` | 76/76 |
 | `probe_interact.js` | 34/34 |
 | `probe_favicon.js` | 30/30 |
 | `probe_scene_light.js` | 30/30 |

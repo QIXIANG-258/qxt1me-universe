@@ -238,9 +238,13 @@ function _rgb(s){var m=/rgba?\\(([^)]+)\\)/.exec(s);if(!m)return null;
 
     /* ---------- 3. 错码 ---------- */
     console.log("\n[3] 错误的神秘码");
+    /* ★ 这里用的错码是**曾经的旧码** 'gis'，不是随手编的 'wrong-code'。
+       理由：改码最典型的失败模式是「只改了 app.js、忘了改别处」或者
+       「浏览器拿到旧缓存」，两者都表现为 **旧码仍然能用**。
+       拿一个从未生效过的字符串当错码，测不出这两种情况。 */
     await evalIn(`(() => {
       var i = document.getElementById('secretInput');
-      i.value = 'wrong-code';
+      i.value = 'GIS';
       i.dispatchEvent(new Event('input', {bubbles:true}));
       document.getElementById('secretSubmit').click();
       return 1;
@@ -260,12 +264,40 @@ function _rgb(s){var m=/rgba?\\(([^)]+)\\)/.exec(s);if(!m)return null;
     ok(r.gisDisplay === "none", "错码不解锁，gis 仍然不显示");
     ok(r.htmlGis === null, "错码后 html 上仍无 data-gis");
     ok(r.ls === null, "错码不写 localStorage");
+    ok(r.msg.indexOf("不对") !== -1 || r.msg.indexOf("match") !== -1,
+       "★ 旧码 'GIS' 已被拒绝（改码真的生效了，不是缓存或漏改）", JSON.stringify(r.msg));
+
+    /* ---------- 3b. 大小写与空白容错 ---------- */
+    console.log("\n[3b] 大小写 / 首尾空白容错");
+    await evalIn(`(() => {
+      var i = document.getElementById('secretInput');
+      i.value = '  SiCauGis  ';
+      i.dispatchEvent(new Event('input', {bubbles:true}));
+      document.getElementById('secretSubmit').click();
+      return 1;
+    })()`);
+    await sleep(400);
+    r = await evalIn(`(() => {
+      var el = document.getElementById('secretMsg');
+      var g = document.getElementById('gisEntry');
+      return { msg: el.textContent, isMiss: el.classList.contains('is-miss'),
+               gisDisplay: getComputedStyle(g).display,
+               htmlGis: document.documentElement.getAttribute('data-gis') };
+    })()`);
+    ok(!r.isMiss, "带空格 + 混合大小写的 sicaugis 被接受（码是给人手打的，不刁难）", JSON.stringify(r.msg));
+    ok(r.htmlGis === "on", "容错输入同样挂上 data-gis=on", "got " + r.htmlGis);
+    ok(r.gisDisplay === "flex", "容错输入同样解锁 gis 入口", "got " + r.gisDisplay);
+
+    /* 复位：清掉刚才解锁的状态，后面的用例要从未解锁开始 */
+    await evalIn(`(function(){try{localStorage.removeItem('uvUnlock')}catch(e){}
+                   document.documentElement.removeAttribute('data-gis');return 1;})()`);
+    await sleep(200);
 
     /* ---------- 4. 对码 ---------- */
     console.log("\n[4] 正确的神秘码");
     await evalIn(`(() => {
       var i = document.getElementById('secretInput');
-      i.value = 'gis';
+      i.value = 'sicaugis';
       i.dispatchEvent(new Event('input', {bubbles:true}));
       document.getElementById('secretSubmit').click();
       return 1;
