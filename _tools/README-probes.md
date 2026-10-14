@@ -35,15 +35,35 @@ python _tools\run_probes.py --list
 2. **`NODE_PATH` 指向含 `ws` 的 node_modules** —— 脚本自动找三个候选位置，
    找不到就明确报「环境失败」而不是静默跳过全部。
 
-## 实测基线（2026-10-12）
+## 实测基线（2026-10-14 重测）
 
 | 层 | 结果 |
 |---|---|
-| static | **9/9 rc=0** —— probe_universe 138/138、probe_interact 34/34、probe_engine_route 22/22、probe_favicon 30/30、probe_weather_fallback 10/10、probe_scene_light 30/30、probe_scene_contrast / probe_light_baseline / probe_layer_isolation 通过 |
-| api | **1/1 rc=0** —— probe_visits **22/22**（打线上） |
+| static | **10/10 rc=0** —— 见下表逐项条数 |
+| api | probe_visits **22/22**（需先 `wrangler dev` 在 8799 跑着，它才有 `/api/visits`） |
 
-> 线上 `probe_universe.js` 是 **139/139**（比本地多 1 条 —— 本地跑不到
-> `_headers` 相关判据）。要验线上就设 `PROBE_URL`。
+| 探针 | 实测条数（2026-10-14） |
+|---|---|
+| `probe_universe.js` | 138/138 |
+| `probe_secret_code.js` | 72/72 |
+| `probe_interact.js` | 34/34 |
+| `probe_favicon.js` | 30/30 |
+| `probe_scene_light.js` | 30/30 |
+| `probe_scene_contrast.js` | 28 项（不达标 0 / 28） |
+| `probe_light_baseline.js` | 28 项（新增不达标 0，原本不达标 0） |
+| `probe_engine_route.js` | 22/22 |
+| `probe_weather_fallback.js` | 10/10 |
+| `probe_layer_isolation.js` | 6 情形（全部 ✓） |
+
+> ⚠️ **这些数字必须实跑取，不能数源码里的 `ok(`。** 实测过：数 `ok(` 得到
+> 45 / 75 / 59，与实跑的 138 / 22 / 34 **全不相等** —— 断言写在循环里、
+> 或一条 `ok` 覆盖多个组合时就会对不上。
+
+> ⚠️ **线上 `probe_universe.js` 是 flaky，别拿单次绿灯当验收证据。**
+> 实测连跑 4 次：139/140 → 140/140 → 140/140 → 139/140（总数在 138 与 140
+> 之间漂，失败项恒为「工具按钮文字对比度 ≥ 4.5 [3.22]」）。
+> 这与本地口径的 138 也不一致 —— 线上会多出 `_headers` 相关判据。
+> **判据是「失败数为 0」，不是某个固定总数。**
 
 ## 搜索引擎线路（`probe_engine_route.js`）
 
