@@ -37,13 +37,23 @@
     <meta name="twitter:description" content="universe — 憩想的个人网页导航：摄影小站、器材库与其他子站的总入口。" />
     <meta name="twitter:image" content="https://universe.qxt1me.dpdns.org/og-cover.png" />
 
-    <!-- 首帧应用已保存的主题与语言，避免深/浅切换与中英切换时闪一下 -->
+    <!-- 首帧应用已保存的主题、语言与「神秘码」解锁状态，
+         避免深/浅切换、中英切换、以及 gis 入口出现时闪一下。 -->
     <script>
       try {
         var _t = localStorage.getItem("uvTheme");
         if (_t === "light") document.documentElement.setAttribute("data-theme", "light");
         var _l = localStorage.getItem("uvLang");
         if (_l === "en") document.documentElement.setAttribute("lang", "en");
+
+        /* 神秘码解锁：**必须在这里做，不能等 app.js**（它在 </body> 前才加载）。
+           否则解锁过的访客每次刷新都会先渲染出「没有 gis」的导航，再补上一条
+           —— 视觉上就是导航跳了一下。这个内联脚本在 <body> 解析前执行，
+           但 #gisEntry 还不存在，所以改成在 <html> 上打标记，
+           由 CSS 的 html[data-gis="on"] #gisEntry 展示（见 style.css）。 */
+        if (localStorage.getItem("uvUnlock") === "1") {
+          document.documentElement.setAttribute("data-gis", "on");
+        }
       } catch (e) {}
     </script>
 
@@ -102,6 +112,15 @@
         </a>
         <button type="button" class="tool-btn" id="langBtn" aria-label="切换语言 / Switch language">EN</button>
         <button type="button" class="tool-btn" id="themeBtn" aria-label="切换明暗主题 / Toggle theme">◐</button>
+
+        <!-- 设置（2026-10-14 作者要求新增）：里面目前只有一项「神秘码」。
+             ⚠️ 图标刻意用**齿轮**而不是「三个点」：三点在 24px 下会被读成
+                「更多 / 溢出菜单」，而这里是设置面板。齿轮的线性画法与
+                站内其余图标同规格（fill:none + stroke:currentColor）。 -->
+        <button type="button" class="tool-btn" id="settingsBtn" aria-haspopup="dialog"
+                aria-controls="settingsModal" aria-label="设置 / Settings">
+          <i class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03z"/></svg></i>
+        </button>
       </div>
     </header>
 
@@ -181,6 +200,59 @@
       </div>
     </div>
 
+    <!-- 设置（2026-10-14 作者要求新增）—— 右上角齿轮按钮打开。
+         目前只有一项「神秘码」。
+
+         ★ 设计意图（作者原话）：「gis 对外人是不显现的，需要在设置里面
+           输入一串神秘码才能让它显示在站点导航里面」。
+           即：**默认状态就是「没有这个站」**，不是「有个灰掉的入口」——
+           所以 gis 那条 <a> 直接带 hidden，解锁前连占位都没有。
+
+         ⚠️ 为什么不是「输密码然后弹提示说对了」这种一次性彩蛋：
+            那样一旦关掉页面就忘了，用户下次来还是找不到 gis。
+            所以解锁结果要**持久化**（localStorage），并与主题/语言
+            同一套「首帧就应用」的做法 —— 否则解锁过的访客每次刷新
+            都会先看到没有 gis 的导航、再跳出来一条，明显是「闪烁」。
+            首帧应用见 <head> 里的内联脚本。
+
+         ⚠️ 输入框**不加 pattern/autocomplete 提示**：它是个彩蛋不是登录框，
+            浏览器不该弹密码管理器；同理没有 <form>，避免回车触发提交行为。 -->
+    <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+      <div class="modal-scrim" data-modal-close></div>
+      <div class="modal-card" role="document">
+        <button type="button" class="modal-x" data-modal-close aria-label="关闭 / Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <h3 class="modal-title" id="settingsTitle" data-zh="设置" data-en="Settings">设置</h3>
+
+        <!-- 设置项的通用结构（以后加项照这个来）：
+             一行 label + 说明，下面跟控件。label 用 for 关联控件。 -->
+        <div class="setting">
+          <label class="setting-label" for="secretInput"
+                 data-zh="神秘码" data-en="Secret code">神秘码</label>
+          <p class="setting-desc"
+             data-zh="输入正确的码，会解锁一些藏起来的东西。"
+             data-en="Enter the right code to unlock something hidden.">输入正确的码，会解锁一些藏起来的东西。</p>
+
+          <!-- 输入 + 确认。回车等同点按钮（见 app.js 的 keydown）。 -->
+          <div class="setting-row">
+            <input type="text" class="setting-input" id="secretInput"
+                   autocomplete="off" autocorrect="off" autocapitalize="off"
+                   spellcheck="false"
+                   aria-describedby="secretMsg"
+                   data-zh="输入神秘码…" data-en="Enter the code…"
+                   placeholder="输入神秘码…" />
+            <button type="button" class="setting-submit" id="secretSubmit"
+                    data-zh="确认" data-en="Apply">确认</button>
+          </div>
+
+          <!-- 反馈行。role="status" 让读屏播报结果，不必抢焦点。
+               ⚠️ 空着时用 :empty{display:none} 收掉，不留一条空白占位。 -->
+          <p class="setting-msg" id="secretMsg" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
     <main id="main">
       <!-- 页面主标题（2026-10-08 补）：此前整页**没有 H1**（最高级是下面那个
            「站点」H2），可访问性与抓取语义都弱。这里用 sr-only —— 页面的视觉
@@ -225,6 +297,25 @@
           </i>
           <span data-zh="2048 小游戏" data-en="2048 Game">2048 小游戏</span>
           <span class="hint">2048.qxt1me.dpdns.org</span>
+        </a>
+
+        <!-- GIS（2026-10-14）：**默认隐藏**，在设置里输入神秘码才出现。
+             见 app.js 的站点解锁逻辑与 <head> 的首帧内联脚本。
+             ⚠️ 藏法就是标准的 `hidden` 属性 —— 连占位都不要（作者要的是
+                「对外人完全不显现」）。CSS 里因此必须有一条
+                .container a[hidden]{display:none}：.container a 是
+                display:flex，只靠 UA 样式表的 [hidden]{display:none}
+                会被**同一条规则里的 display:flex 盖掉**，于是「隐藏」
+                实际不生效 —— 这个坑在本项目里已经踩过三次
+                （.scene / .weather / .modal 各自补了一条 [hidden]）。
+             ⚠️ 图标沿用「分层叠片」的线性画法表示地图图层，与站内其余
+                图标同规格（fill:none + stroke:currentColor），不填色。 -->
+        <a href="https://gis.qxt1me.dpdns.org/" id="gisEntry" hidden>
+          <i class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3.2L20.5 7.6l-8.5 4.4-8.5-4.4z"/><path d="M20.5 12L12 16.4 3.5 12"/><path d="M20.5 16.4L12 20.8l-8.5-4.4"/></svg>
+          </i>
+          <span data-zh="地理图集" data-en="GIS Atlas">地理图集</span>
+          <span class="hint">gis.qxt1me.dpdns.org</span>
         </a>
       </nav>
 

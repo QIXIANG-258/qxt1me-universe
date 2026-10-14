@@ -212,8 +212,16 @@ const SNAPSHOT = `(() => {
       const r = s.getBoundingClientRect();
       return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 };
     });
-  /* 隐藏的图标必须全在 .shortcut-hints 里 —— 否则说明有别的块意外被藏了 */
-  const hiddenOutsideHints = hiddenIcons.filter(s => !s.closest('.shortcut-hints')).length;
+  /* 隐藏的图标必须全在 .shortcut-hints 里 —— 否则说明有别的块意外被藏了。
+     ⚠️ 2026-10-14 例外：#gisEntry 是**故意隐藏**的 —— 它要等访客在设置里
+        输入神秘码才出现（见 probe_secret_code.js）。它带着 hidden，
+        里面的 .ico svg 自然拿不到 client rect，会稳定地算成「意外藏块」；
+        那是探针不知道这条例外，不是产品缺陷。
+        排除的是**这一处已知的、有意的**隐藏，判据本质
+        （除了快捷提示块和待解锁入口，没有别的块意外被藏）不变。 */
+  const hiddenOutsideHints = hiddenIcons.filter(
+    (s) => !s.closest('.shortcut-hints') && !s.closest('#gisEntry')
+  ).length;
   /* 子站链接 = 「站点」栏里的链接。
      ⚠️ 2026-10-07 加了「联系方式」栏后，原来的 .container a 会把
         mailto / github / pexels 也算进来 —— 那三条是**正当的外链**

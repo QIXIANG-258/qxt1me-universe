@@ -55,6 +55,7 @@ SUITE = [
     ("probe_scene_contrast.js",  "static",  True),
     ("probe_light_baseline.js",  "static",  True),
     ("probe_layer_isolation.js", "static",  True),
+    ("probe_secret_code.js",     "static",  True),
 ]
 
 

@@ -1523,6 +1523,159 @@ html[lang="en"] .foot-name {
 }
 
 /* ---------------------------------------------------------
+   设置弹窗（2026-10-14）
+   复用上面的 .modal / .modal-card 骨架，这里只加「设置项」的排版。
+   ★ 家族铁律「界面零彩度」同样适用：成功/失败反馈**不用红绿**，
+     只用灰阶明度差 + 文案区分（见 .setting-msg 的两档）。
+   --------------------------------------------------------- */
+.setting {
+  margin: 0 0 1.3em;
+}
+
+.setting:last-child { margin-bottom: 0; }
+
+.setting-label {
+  display: block;
+  font-family: var(--f-serif-d);
+  font-size: .98rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  color: rgb(var(--fg-rgb));
+  margin: 0 0 .35em;
+}
+
+.setting-desc {
+  font-size: .82rem;
+  line-height: 1.7;
+  letter-spacing: .02em;
+  color: rgb(var(--fg-weak-rgb));
+  margin: 0 0 .8em;
+}
+
+/* 输入 + 确认一行。窄屏折行（输入框给一个能用的最小宽度，
+   否则 390px 下会被确认按钮压成一条缝）。 */
+.setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55em;
+}
+
+.setting-input {
+  flex: 1 1 12em;
+  min-width: 0;
+  font-family: var(--f-cn);
+  font-size: .9rem;
+  letter-spacing: .06em;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-alt-rgb));
+  border: 1px solid rgba(var(--line-rgb), .18);
+  border-radius: var(--r-sm);
+  padding: .6em .75em;
+  transition: border-color .18s var(--ease), background-color .18s var(--ease);
+}
+
+/* 占位符要能看清但仍弱于正文 —— 浅色下 --fg-weak 在 --bg-alt 上约 4.5+，
+   与站内其它 11–13px 灰字同一档。 */
+.setting-input::placeholder {
+  color: rgb(var(--fg-weak-rgb));
+  letter-spacing: .04em;
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: rgba(var(--line-rgb), .5);
+  background: rgb(var(--bg-rgb));
+}
+
+.setting-input:focus-visible {
+  outline: 1px solid rgba(var(--line-rgb), .5);
+  outline-offset: 2px;
+}
+
+.setting-submit {
+  flex: 0 0 auto;
+  font-family: var(--f-cn);
+  font-size: .85rem;
+  letter-spacing: .1em;
+  color: rgb(var(--fg-rgb));
+  background: rgb(var(--bg-2-rgb));
+  border: 1px solid rgba(var(--line-rgb), .18);
+  border-radius: var(--r-sm);
+  padding: .6em 1.1em;
+  cursor: pointer;
+  transition: color .18s var(--ease), background-color .18s var(--ease),
+              border-color .18s var(--ease);
+}
+
+.setting-submit:hover {
+  border-color: rgba(var(--line-rgb), .34);
+}
+
+.setting-submit:active {
+  background: rgb(var(--hl-rgb));
+  color: rgb(var(--hl-ink-rgb));
+  border-color: rgb(var(--hl-rgb));
+}
+
+.setting-submit:focus-visible {
+  outline: 1px solid rgba(var(--line-rgb), .5);
+  outline-offset: 2px;
+}
+
+/* 反馈行：默认空着，用 :empty 收掉，不留一条空白占位。
+   ⚠️ 是 :empty 而不是 hidden —— 文案由 JS 写 textContent，
+      一旦写过就不再是 :empty，所以要清空时**必须写回空串**
+      （写成 " " 一个空格就不匹配 :empty 了，会留一条空白）。
+   两档反馈只用灰阶：成功提亮到 --fg，失败压到 --fg-weak。 */
+.setting-msg {
+  font-size: .8rem;
+  line-height: 1.7;
+  letter-spacing: .03em;
+  color: rgb(var(--fg-rgb));
+  margin: .7em 0 0;
+}
+
+.setting-msg:empty { display: none; }
+
+.setting-msg.is-miss {
+  color: rgb(var(--fg-weak-rgb));
+}
+
+/* ---------------------------------------------------------
+   ★ 两个必须显式写出来的 [hidden] 规则（2026-10-14）
+
+   为什么不能只靠浏览器的 [hidden]{display:none}：
+   它来自 UA 样式表，**优先级最低**，任何作者样式里的 display
+   都会把它盖掉。本站已经因为这条踩过三次坑，各自补了一条：
+     .scene[hidden]   （.scene 是 flex 定位容器）
+     .weather[hidden] （.weather 是 flex）
+     .modal[hidden]   （.modal 是 flex）
+   这次新增的两处同样是 flex 容器，所以同样必须补：
+
+   ① .container a[hidden] —— gis 入口。.container a 是 display:flex，
+      不补这条「隐藏」实际不生效（元素照常显示），而且**不会有任何报错**
+      —— 是最难发现的那种失败：看起来像「代码没写」，实际是写了被盖掉。
+   ② .soon[hidden] —— .soon 也是 flex，一并补上，防止以后有人给
+      「未上线」条目加隐藏时不生效。
+   --------------------------------------------------------- */
+.container a[hidden],
+.soon[hidden] {
+  display: none;
+}
+
+/* 神秘码解锁后，gis 入口才出现。
+   用属性选择器挂在 <html data-gis="on"> 上，而不是由 JS 直接改
+   element.hidden —— 因为解锁状态要在**首帧**（app.js 还没加载时）就生效，
+   见 index.html 的 <head> 内联脚本。
+   ⚠️ 这两条要放在 .container a[hidden] **之后**：两者特异性相同
+      （0,2,1 vs 0,2,1 —— html[data-gis] #gisEntry 是 1 元素+1 属性+1 id，
+      .container a[hidden] 是 2 类+1 属性），后者更高，所以这里需要
+      用同样的 [hidden] 把 display 再改回来，靠**顺序**取胜。 */
+html[data-gis="on"] .container a#gisEntry[hidden] {
+  display: flex;
+}
+
+/* ---------------------------------------------------------
    顶部图标放大（作者：图标可以大一点）
    时钟与搜索框的图标各放大一档 —— 只动尺寸，不动描边宽度，
    与 blog「细线放大反而更清楚」的处理一致。

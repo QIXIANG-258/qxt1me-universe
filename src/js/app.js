@@ -313,6 +313,140 @@
   }
 
   /* ---------------------------------------------------------
+     5b. 设置弹窗 + 神秘码（2026-10-14）
+     骨架与「关于」完全一致（三条关闭路径 + 焦点归还），
+     这里只多一件事：把输入的码与 UNLOCK_CODE 比对。
+
+     ★ 关于「神秘码」本身，两层必须分清：
+       ① 它是**彩蛋/防误入**，不是安全机制。码就写在这个文件里，
+          任何人打开 DevTools 或直接读 app.js 都能看到；localStorage
+          也能手动改。所以它只挡住了「随便点进来的陌生人」，
+          **绝不能**拿它保护任何真正私密的东西。
+          https://gis.qxt1me.dpdns.org/ 本身是公开可访问的，
+          这里做的只是「不在导航里给他看」。
+       ② 解锁结果持久化的键是 uvUnlock，值固定为 "1"
+          （不是存码本身 —— 存码等于把码留在本地明文里，
+           而且以后改码时旧访客会莫名其妙失效）。
+     --------------------------------------------------------- */
+  var UNLOCK_CODE = "gis";
+
+  var settingsBtn = $("#settingsBtn");
+  var settingsModal = $("#settingsModal");
+
+  /* 反馈文案：两种语言各一份，跟着 data-zh/data-en 的当前语言走。
+     ⚠️ 不放进 data-zh/data-en 属性里 —— 那是**静态**文案，
+        这两条的结果依赖用户输入，必须由 JS 现算。 */
+  var MSG = {
+    ok:    { zh: "该有的都在了 —— 回首页看看。", en: "Everything is in place — take a look at the home page." },
+    again: { zh: "已经解锁过了。",             en: "Already unlocked." },
+    miss:  { zh: "这个码不对。再想想？",        en: "That code doesn't match. Try again?" }
+  };
+
+  function isUnlocked() {
+    try { return localStorage.getItem("uvUnlock") === "1"; } catch (e) { return false; }
+  }
+
+  /* 应用解锁状态。★ 只改 <html data-gis>，不碰 #gisEntry.hidden ——
+     两处都能让 gis 出现，但同时做会打架（一个改属性、一个改元素），
+     而且**首帧**必须由 CSS 独力完成（内联脚本时 #gisEntry 还不存在）。 */
+  function applyUnlock() {
+    if (isUnlocked()) document.documentElement.setAttribute("data-gis", "on");
+    else document.documentElement.removeAttribute("data-gis");
+  }
+  applyUnlock();
+
+  function setMsg(key) {
+    var el = $("#secretMsg");
+    if (!el) return;
+    var lang = document.documentElement.lang === "en" ? "en" : "zh";
+    el.textContent = key ? MSG[key][lang] : "";
+    /* 失败档压到 --fg-weak（灰阶区分，不用红色 —— 家族铁律「界面零彩度」）。
+       ⚠️ 清空时必须同时摘掉这个类，否则下次成功也还是灰的。 */
+    if (key === "miss") el.classList.add("is-miss");
+    else el.classList.remove("is-miss");
+  }
+
+  function submitSecret() {
+    var input = $("#secretInput");
+    if (!input) return;
+    var v = input.value.trim();
+
+    /* 大小写不敏感 + 去首尾空白：这个码是给人手打的，
+       因为大小写没进去就「不对」属于刁难，不是安全。
+       （真安全靠的不是这个码，见上面的说明。） */
+    if (v.toLowerCase() === UNLOCK_CODE) {
+      if (isUnlocked()) {
+        setMsg("again");
+      } else {
+        try { localStorage.setItem("uvUnlock", "1"); } catch (e) {}
+        applyUnlock();
+        setMsg("ok");
+      }
+      input.value = "";
+    } else {
+      setMsg("miss");
+      /* 不清空、也不抖动 —— 保留用户刚打的，方便改一个字符重试。
+         ⚠️ 不自动聚焦/不弹 alert：alert 会打断，且和弹窗的
+            Esc 关闭路径冲突（alert 里的 Esc 关的是 alert）。 */
+    }
+  }
+
+  if (settingsBtn && settingsModal) {
+    var lastFocusS = null;
+
+    function openSettings() {
+      lastFocusS = document.activeElement;
+      settingsModal.hidden = false;
+      /* 打开时先把上一次的反馈清掉 —— 否则上次的「这个码不对」
+         会留在框里，看着像这次也错了。 */
+      setMsg(null);
+      var input = $("#secretInput");
+      if (input) { input.value = ""; input.focus(); }
+      else {
+        var x = settingsModal.querySelector(".modal-x");
+        if (x) x.focus();
+      }
+    }
+
+    function closeSettings() {
+      settingsModal.hidden = true;
+      setMsg(null);
+      if (lastFocusS && lastFocusS.focus) lastFocusS.focus();
+    }
+
+    settingsBtn.addEventListener("click", openSettings);
+
+    var closersS = settingsModal.querySelectorAll("[data-modal-close]");
+    for (var si = 0; si < closersS.length; si++) {
+      closersS[si].addEventListener("click", closeSettings);
+    }
+
+    var secretSubmit = $("#secretSubmit");
+    if (secretSubmit) secretSubmit.addEventListener("click", submitSecret);
+
+    var secretInput = $("#secretInput");
+    if (secretInput) {
+      /* 回车 = 点「确认」。没有用 <form>，所以不会有浏览器默认提交行为
+         （那样会刷新页面并把码带进 URL）。 */
+      secretInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitSecret();
+        }
+      });
+      /* 边打边把上一次的失败提示收掉：留着旧结果会让人以为这次也错。 */
+      secretInput.addEventListener("input", function () {
+        var el = $("#secretMsg");
+        if (el && el.textContent) setMsg(null);
+      });
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !settingsModal.hidden) closeSettings();
+    });
+  }
+
+  /* ---------------------------------------------------------
      6. 点击复制（QQ 号）
         照 blog 的做法：点一下复制到剪贴板，并把按钮文字短暂换成「已复制」。
         ⚠️ navigator.clipboard 在非 HTTPS / 旧浏览器可能不可用，
