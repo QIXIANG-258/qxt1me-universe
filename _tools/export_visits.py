@@ -79,10 +79,23 @@ def main():
     print("== 导出 universe 访客统计 ==\n  KV 命名空间: %s" % NS)
 
     # ① 列键
-    out, err, rc = wrangler(["kv", "key", "list", "--namespace-id", NS, "--remote"])
-    keys = parse_json(out)
+    #
+    # 为什么要重试一次：**冷启动的第一次调用会失败**。实测第一次跑时 wrangler
+    # 先做登录态/账号解析（stdout 打出 "Getting User settings..."、OAuth 邮箱、
+    # 一张账号表格），然后**根本没执行 kv 命令就退出了** —— stdout 里没有 JSON，
+    # parse_json 返回 None，脚本报「列键失败」。紧接着手工再跑同一条命令就正常。
+    # 这属于 CLI 首次运行的预热行为，不是配置错误，所以**自动重试一次**，
+    # 而不是让人看到红色报错就以为 KV 坏了。
+    keys = None
+    for attempt in (1, 2):
+        out, err, rc = wrangler(["kv", "key", "list", "--namespace-id", NS, "--remote"])
+        keys = parse_json(out)
+        if keys:
+            break
+        if attempt == 1:
+            print("  ⚠️ 第 1 次列键没拿到 JSON（rc=%s，常见于 CLI 冷启动），重试…" % rc)
     if not keys:
-        print("🔴 列键失败（拿不到 JSON）。原始输出前 300 字：")
+        print("🔴 列键失败（拿不到 JSON，已重试 1 次）。原始输出前 300 字：")
         print((out + err)[:300])
         return 2
     print("  键总数: %d" % len(keys))
