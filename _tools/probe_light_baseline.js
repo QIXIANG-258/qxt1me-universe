@@ -126,15 +126,42 @@ const parseRgb = (s) => { const m = String(s).match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d
   await ev(`document.documentElement.setAttribute('data-theme','light'); 1`);
   await sleep(800);
 
+  /* ⚠️ 量之前必须先掐掉 CSS 过渡（2026-10-27 修，这是本探针长期假红的根因）。
+     机制：切 data-daypart 会让场景各层的 `background` 走 2.4s 过渡
+     （style.css 里 .scene-* 的 `transition: background 2.4s`）。原来这里只
+     sleep(450)，采到的是**过渡中间帧** —— 底色还没走到终点，于是对比度
+     算出来是 3.7~3.9（实际终值 4.86，达标）。表现是「跑一次绿、跑一次红」：
+     450ms 落在过渡曲线的哪一段取决于当次机器负载，谁也复现不稳。
+
+     治法不是把 sleep 拉长到 2400+（每条 7 个时段 × 2 轮 = 14 次，白等半分钟，
+     而且换台慢机器仍可能不够），而是**关掉过渡再量**：过渡只影响「多久到」，
+     不影响「到哪」—— 终值就是我们要判的对比度。关掉后同一时刻读即终值，
+     与机器快慢无关。
+
+     ⚠️ 只关 transition，不关 animation：场景里的日辉/云动画停了会冻在首帧，
+        那是另一回事（本项目 animation:none 会让元素永远看不见，踩过）。 */
+  const noTransition = async (on) => {
+    await ev(`(() => {
+      var s = document.getElementById('__nt__');
+      if (${on}) {
+        if (!s) { s = document.createElement('style'); s.id = '__nt__';
+          s.textContent = '*, *::before, *::after { transition: none !important; }';
+          document.head.appendChild(s); }
+      } else if (s) { s.remove(); }
+      return 1; })()`);
+  };
+
   const measure = async (withScene) => {
     const out = [];
+    await noTransition(true);
     for (const part of PARTS) {
       await ev(`(() => { const s = document.querySelector('#scene');
         s.setAttribute('data-daypart','${part}');
         s.setAttribute('data-weather','clear');
         s.style.display = ${withScene ? "'block'" : "'none'"};
         return 1; })()`);
-      await sleep(450);
+      // 过渡已关，两帧足够让样式落定；这里留 120ms 只是为了跨过 rAF 与合成。
+      await sleep(120);
       const els = await ev(`(() => {
         const pick = (sel) => { const e = document.querySelector(sel); if (!e) return null;
           const r = e.getBoundingClientRect();
@@ -156,6 +183,8 @@ const parseRgb = (s) => { const m = String(s).match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d
       }
     }
     await ev(`(() => { const s = document.querySelector('#scene'); s.style.display='block'; return 1; })()`);
+    // 量完恢复过渡：后面没有别的量测了，但留着更干净（万一以后加步骤）。
+    await noTransition(false);
     return out;
   };
 
