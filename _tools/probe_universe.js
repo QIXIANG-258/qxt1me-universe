@@ -1290,7 +1290,15 @@ const SNAPSHOT = `(() => {
 
     /* robots.txt / sitemap.xml：同源 fetch，走页面自己的网络栈。
        ⚠️ 页面内脚本里**不写正则** —— SNAPSHOT/ev 都过模板字符串，反斜杠会被吞；
-          这里只把响应体带回来，匹配全部在 Node 侧做。 */
+          这里只把响应体带回来，匹配全部在 Node 侧做。
+
+       🔴 2026-10-27 修：原来只带回 `body.slice(0, 600)`，于是线上 robots.txt
+          的 `Sitemap:` 行落在 600 字节之外 —— Cloudflare 会在 robots.txt 前面
+          注入约 2.6 KB 的「Managed Content」（AI 爬虫拦截清单，# END
+          Cloudflare Managed Content 结尾），站点自己的内容被挤到 2.6 KB 之后。
+          实测线上 2835 B、本地 240 B：本地绿、线上恒红，而站点本身完全正常。
+          ⇒ 判据要看**全文**，不能只看开头。`found` 里用 indexOf 在页面内算
+          （indexOf 不吃反斜杠），Node 侧只需读布尔值。 */
     const seoFiles = await ev(`(async () => {
       const out = {};
       const names = ['/robots.txt', '/sitemap.xml'];
@@ -1303,6 +1311,10 @@ const SNAPSHOT = `(() => {
             cc: res.headers.get('cache-control'),
             len: body.length,
             head: body.slice(0, 600),
+            tail: body.slice(-600),
+            /* 全文包含判定（不用正则，避免被模板字符串吞反斜杠） */
+            hasSitemapRef: body.indexOf('Sitemap: https://universe.qxt1me.dpdns.org/sitemap.xml') >= 0,
+            hasRootLoc: body.indexOf('<loc>https://universe.qxt1me.dpdns.org/</loc>') >= 0,
           };
         } catch (e) {
           out[name] = { status: 0, err: String(e).slice(0, 140) };
@@ -1313,11 +1325,13 @@ const SNAPSHOT = `(() => {
     const robotsTxt = seoFiles["/robots.txt"] || {};
     const sitemapXml = seoFiles["/sitemap.xml"] || {};
     ok(robotsTxt.status === 200, "robots.txt 返回 200", JSON.stringify(robotsTxt).slice(0, 200));
-    ok(/Sitemap:\s*https:\/\/universe\.qxt1me\.dpdns\.org\/sitemap\.xml/.test(robotsTxt.head || ""),
-       "robots.txt 里声明了本站的 sitemap", String(robotsTxt.head || "").slice(0, 120));
+    ok(robotsTxt.hasSitemapRef === true,
+       "robots.txt 里声明了本站的 sitemap（查全文，不只前 600 字节）",
+       `len=${robotsTxt.len} 命中=${robotsTxt.hasSitemapRef} 尾部=${String(robotsTxt.tail || "").slice(-120)}`);
     ok(sitemapXml.status === 200, "sitemap.xml 返回 200", JSON.stringify(sitemapXml).slice(0, 200));
-    ok(/<loc>https:\/\/universe\.qxt1me\.dpdns\.org\/<\/loc>/.test(sitemapXml.head || ""),
-       "sitemap.xml 里含本站唯一 URL", String(sitemapXml.head || "").slice(0, 160));
+    ok(sitemapXml.hasRootLoc === true,
+       "sitemap.xml 里含本站唯一 URL",
+       `len=${sitemapXml.len} 命中=${sitemapXml.hasRootLoc}`);
     /* 缓存头只在线上有意义：本地 python -m http.server 不读 _headers，
        取不到就如实写「跳过」，不假装通过也不误判为失败。 */
     ok(!robotsTxt.cc || /max-age=3600/.test(robotsTxt.cc),
