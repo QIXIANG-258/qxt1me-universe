@@ -30,6 +30,7 @@
   #       比「不写」（= 默认 self 但语义靠默认值）更明确，也便于以后审计。
   Permissions-Policy: camera=(), microphone=(), geolocation=(self)
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-l2HbHBvBkk8CcE36K7EladlpfpP1qL1JozZriwLGTVw=' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com; font-src 'self'; connect-src 'self' https://api.open-meteo.com https://cloudflareinsights.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 
 # ↓ 以下是缓存策略，规则之间互不重叠
 
