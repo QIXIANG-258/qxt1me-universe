@@ -1104,7 +1104,12 @@ const SNAPSHOT = `(() => {
     s = await ev(SNAPSHOT);
     s.headPrimary = await waitColorReaches('.container h2', hexToTriplet(blog.light.ink)) || s.headPrimary;
     s.bodyColor = await waitColorReaches('body', hexToTriplet(blog.light.ink)) || s.bodyColor;
-    s.hintColor = await waitColorReaches('.container a .hint', hexToTriplet(blog.light.ink2)) || s.hintColor;
+    /* ⚠️ 浅色 hint 不再等于 blog 的 --ink-2（#5c5b56），而是刻意压深到 #55544f。
+       原因：universe 的文字压在**场景天空**上，不是压在同色的卡片上；
+       浅色 dusk 天空最暗处 rgb(208,208,209)，#5c5b56 实测只有 4.42 —— 不达标。
+       所以这里不能再拿 blog 的 token 当期望值（那会逼着实现停在 4.42），
+       改成断言「已压到 #55544f」+ 顺带验对比度 ≥ 4.5，两件事都写清楚。 */
+    s.hintColor = await waitColorReaches('.container a .hint', [85, 84, 79]) || s.hintColor;
     /* 底色同理 —— 这三项是过渡最明显的，必须等它落到目标值 */
     s.bodyBg = await waitColorReaches('body', hexToTriplet(blog.light.bg), 40, 'backgroundColor') || s.bodyBg;
     s.cardBg = await waitColorReaches('.container', hexToTriplet(blog.light.card), 40, 'backgroundColor') || s.cardBg;
@@ -1114,15 +1119,20 @@ const SNAPSHOT = `(() => {
       cardBg: blog.light.card,
       bodyColor: blog.light.ink,
       headPrimary: blog.light.ink,
-      hintColor: blog.light.ink2,
+      hintColor: "#55544f",
     };
     for (const [key, hex] of Object.entries(expectLight)) {
       const want = hexToTriplet(hex);
       const got = parseRgb(s[key]);
-      ok(got && got.join(",") === want.join(","), `浅色 ${key} = blog ${hex}`, `实测 ${s[key]}`);
+      const ref = key === "hintColor" ? "已压深到" : "= blog";
+      ok(got && got.join(",") === want.join(","), `浅色 ${key} ${ref} ${hex}`, `实测 ${s[key]}`);
     }
     const cBodyL = contrast(parseRgb(s.bodyColor), parseRgb(s.cardBg));
     ok(cBodyL >= 4.5, "浅色态正文对比度 ≥ 4.5", cBodyL.toFixed(2));
+    /* 浅色 hint 压深的目的就是达标，所以顺手把它压在浅色天空上的对比度也验了
+       —— 只断言「等于某个色值」是不够的，色值本身可能是错的。 */
+    const cHintL = contrast(parseRgb(s.hintColor), [208, 208, 209]);
+    ok(cHintL >= 4.5, "浅色说明文字压在 dusk 天空最暗处 ≥ 4.5", cHintL.toFixed(2));
 
     /* 工具按钮要跟着主题走：浅色态必须是浅底深字，别停在深色皮肤 */
     const tBg = parseRgb(s.toolBg), tFg = parseRgb(s.toolColor);
