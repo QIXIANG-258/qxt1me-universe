@@ -79,6 +79,14 @@ python _tools\run_probes.py --list
 > 教训同上一条：**「一直红」先分清是站点坏了还是判据写窄了** —— 这条属于后者，
 > 而它红了很久都没人查，正是因为「线上多几条判据、红一条很正常」的惯性解释。
 
+> **2026-10-28 现状更新：CF 的 Managed robots 注入已经没有了。**
+> 五站线上 `robots.txt` 与本地源文件**逐字节完全一致**（blog 460 B / universe 240 B /
+> gear 327 B / 2048 340 B / gis 74 B，`Buffer.equals` 全 true，连跑 3 轮无变化，
+> 带 Baiduspider UA 抓首页也是 200）—— 上面记的「注入 2.6 KB」是**当时**的事实，
+> 现在那块内容已经撤掉了（CF 控制台的 AI Crawl Control / Managed robots 开关）。
+> **判据不要跟着回退**：按 `User-agent` 分组解析仍然是对的写法 —— 平台将来
+> 再注入一次，分组判据不会假红，全文正则判据会。
+
 > 🔴 **2026-10-27 修掉 `probe_light_baseline.js` 的 flaky（同属判据缺陷，不是站点缺陷）。**
 > 症状：连跑 5 次 rc = 0/0/1/0/1，报错项在 `morning/.foot-note` 与
 > `noon/.foot-note` 之间跳，对比度 4.86 → 3.71~3.90。
