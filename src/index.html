@@ -18,7 +18,7 @@
          随之把 twitter:card 一起改成 summary_large_image。
          ⚠️ 这两件事**必须同时改**：换了横版图却留着 summary 会浪费版面，
             换了 card 却留方形图会被裁成一条 —— 探针里有一条判据专门守这个配对。
-         卡片由 _tools/og_card.html + _tools/make_og_image.js 用真实浏览器渲染
+         卡片用一个本地 HTML 模板 + 无头浏览器渲染出来
          （复用本站自己的字体与配色），改文案/加子站后重跑即可。 -->
     <link rel="canonical" href="https://universe.qxt1me.dpdns.org/" />
     <meta property="og:type" content="website" />
@@ -57,14 +57,14 @@
       } catch (e) {}
     </script>
 
-    <!-- 自托管字体声明（从 blog 机械抽取，勿手改；见 _tools/extract_fonts.py） -->
+    <!-- 自托管字体声明（从 blog 机械抽取，勿手改；由构建脚本生成） -->
     <link rel="stylesheet" href="css/fonts.css" />
     <link rel="stylesheet" href="css/style.css" />
     <!-- 站点图标（2026-10-07）：源图是一张光圈/快门线稿。
          ⚠️ 图标**自带深色圆角底**（站点暖黑 #0f0f0f）+ 暖白线稿 ——
             不能做「透明底 + 深色线」，否则浏览器深色主题的标签栏上会看不见
             （实测：透明底深线在深色标签栏上完全消失）。
-         参数（加粗 +12 / 填充 0.88）由 _cleanup/make_favicon.py 实测定标；
+         参数（加粗 +12 / 填充 0.88）是把源图逐版渲染出来对比定标的；
          maskable 版另有安全区约束（图形须落在直径 80% 的中心圆内，
          故 inset 收到 0.56、背景改满幅方块）。 -->
     <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48" />
@@ -394,7 +394,7 @@
            ⚠️ 只放 **public** 的。private 仓库不能上导航 —— 点进去是 404 或登录墙。
            ⚠️ 本块**也**用 .social-container（复用版式）但又加了 .git-container，
               所以探针里「站点卡片内链接都指向本站群」那条必须排除它 ——
-              详见 _tools/ 里探针的取样说明。
+              详见构建期的取样说明。
            ⚠️ 外链一律 target="_blank" + rel="noopener"。
            ⚠️ 目前两项都**没有线上 demo**（实测 homepage 未设置、has_pages=false），
               所以指向仓库本身；以后作者部署了 demo，再改 href 并把 hint 写成域名。 -->
@@ -450,7 +450,7 @@
     <!-- 访客记录（2026-10-10 作者要求新增）
          —— 固定在视窗左下角，不随滚动移动。
 
-         ⚠️ 设计前先量过遮挡（CDP 逐点 elementFromPoint 采样，见 _tools/ 下的探针）：
+         ⚠️ 设计前先量过遮挡（CDP 逐点 elementFromPoint 采样）：
             单个平台内，内容**垂直居中且铺满视窗**，所以左下角在**任何**视口下
             都压着东西。实测被压的依次是：
               · 1440px → 只压到 skip-link（它平时在视窗外，无害）
