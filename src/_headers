@@ -29,6 +29,7 @@
   #    ⚠️ 用 `geolocation=(self)` 而不是整条删掉 —— 显式限定只有本站能用，
   #       比「不写」（= 默认 self 但语义靠默认值）更明确，也便于以后审计。
   Permissions-Policy: camera=(), microphone=(), geolocation=(self)
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 # ↓ 以下是缓存策略，规则之间互不重叠
 

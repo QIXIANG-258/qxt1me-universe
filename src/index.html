@@ -391,11 +391,10 @@
              · 站点 = 我自己的域名下的站（站群成员）
              · 外站 = 别人的站，我常去
              · 本项目 = 我账号下的 **public** 开源仓库
-           ⚠️ 只放 **public** 的。private 仓库（qxt1me-blog / -gear / -notes /
-              DOS-Correct）不能上导航 —— 点进去是 404 或登录墙。
+           ⚠️ 只放 **public** 的。private 仓库不能上导航 —— 点进去是 404 或登录墙。
            ⚠️ 本块**也**用 .social-container（复用版式）但又加了 .git-container，
               所以探针里「站点卡片内链接都指向本站群」那条必须排除它 ——
-              详见 probe_universe.js 里 siteCardHrefs 的取样说明。
+              详见 _tools/ 里探针的取样说明。
            ⚠️ 外链一律 target="_blank" + rel="noopener"。
            ⚠️ 目前两项都**没有线上 demo**（实测 homepage 未设置、has_pages=false），
               所以指向仓库本身；以后作者部署了 demo，再改 href 并把 hint 写成域名。 -->
@@ -451,7 +450,7 @@
     <!-- 访客记录（2026-10-10 作者要求新增）
          —— 固定在视窗左下角，不随滚动移动。
 
-         ⚠️ 设计前先量过遮挡（CDP 逐点 elementFromPoint 采样，见 _tools/probe_visits.js）：
+         ⚠️ 设计前先量过遮挡（CDP 逐点 elementFromPoint 采样，见 _tools/ 下的探针）：
             单个平台内，内容**垂直居中且铺满视窗**，所以左下角在**任何**视口下
             都压着东西。实测被压的依次是：
               · 1440px → 只压到 skip-link（它平时在视窗外，无害）
@@ -463,7 +462,7 @@
 
          ⚠️ 家族铁律「界面零彩度」：这里全部用 --fg-* 灰阶，不引任何强调色。
          ⚠️ 数据是真计数（Cloudflare KV），不是前端编的 ——
-            见 worker/index.js 与 wrangler.jsonc 的 UV_VISITS 绑定。 -->
+            由服务端真实计数，不是前端编的。 -->
     <div class="visits" id="visits" hidden
          role="status" aria-live="polite"
          data-zh-title="访客记录 · 每日去重" data-en-title="Visitors · deduped daily">

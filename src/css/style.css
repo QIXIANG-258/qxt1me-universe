@@ -73,7 +73,7 @@ html[data-theme="light"] {
   --bg-2-rgb: 227, 224, 217;     /* ← blog --card-2   #e3e0d9 */
 
   --fg-rgb: 22, 22, 22;          /* ← blog --ink      #161616 */
-  --fg-alt-rgb: 92, 91, 86;      /* ← blog --ink-2    #5c5b56 */
+  --fg-alt-rgb: 85, 84, 79;      /* ← 提深一档（原 #5c5b56 在浅色 dusk 天空上只有 4.42，现 #55544f 得 4.92） */
   --fg-weak-rgb: 104, 103, 95;   /* ← blog --ink-3    #68675f */
 
   --primary-rgb: 22, 22, 22;
@@ -1052,7 +1052,9 @@ html[data-theme="light"] .scene[data-daypart="dusk"] ~ * .clock-date i {
 .weather-city {
   font-size: .78rem;
   letter-spacing: .08em;
-  color: rgb(var(--fg-weak-rgb));
+  /* 城市名落在**天空**上而不是卡片上：深色天空最暗处 rgb(40,49,65) 上
+     --fg-weak 只有 3.34。改用 --fg-alt（深色 6.29 / 浅色 4.92）。 */
+  color: rgb(var(--fg-alt-rgb));
 }
 
 /* 悬停：与站点栏一致的反色块（复用 --hl / --hl-ink 那一对） */
