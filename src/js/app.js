@@ -51,9 +51,9 @@
         没有 URL 路由，指不过去（详见 README 的「待办」）。
         gear 站自己**有** hash 路由（#k=lens&b=Canon），将来要深链可以指过去。 */
   var SITES = {
-    "ph:": BLOG,        /* 摄影小站 Photo Journal */
+    "ph:": BLOG,        /* 摄影博客 Photo Blog */
     "blog:": BLOG,
-    "gear:": GEAR,      /* 器材库 Gear Search —— 注意域名是 gear-search. 不是 gear. */
+    "gear:": GEAR,      /* 器材筛选库 Gear Index —— 注意域名是 gear-search. 不是 gear. */
     "gs:": GEAR,
     "2048:": G2048,     /* 2048 小游戏（2026-10-07 上线） */
     "game:": G2048

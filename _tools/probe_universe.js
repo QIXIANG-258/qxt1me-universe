@@ -1157,7 +1157,7 @@ const SNAPSHOT = `(() => {
     ok(en.lang === "en", "切英文后 <html lang> 变了", en.lang);
     ok(en.btn === "中", "语言按钮显示「可切换到的目标语言」（与 blog 同约定）", en.btn);
     ok(/Sites/.test(en.firstHead), "标题文案已切英文", en.firstHead);
-    ok(/Photo Journal/.test(en.firstLink), "链接文案已切英文", en.firstLink);
+    ok(/Photo Blog/.test(en.firstLink), "链接文案已切英文", en.firstLink);
     ok(/[A-Za-z]{3}/.test(en.date), "日期跟随语言切换", en.date);
 
     /* 切到英文后再查一次花体 —— 这条 bug 当初就只在英文态出现 */

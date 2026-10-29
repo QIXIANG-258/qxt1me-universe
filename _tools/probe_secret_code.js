@@ -188,7 +188,7 @@ function _rgb(s){var m=/rgba?\\(([^)]+)\\)/.exec(s);if(!m)return null;
        这里必须量到 display:none —— 量到 flex 就说明那条 [hidden] 规则没生效。 */
     ok(r.display === "none", "gis 入口 display 真的是 none（不是被 flex 盖掉）", "got " + r.display);
     ok(r.rectH === 0, "gis 入口不占任何高度", "h=" + r.rectH);
-    ok(r.navText && r.navText.indexOf("gis") === -1 && r.navText.indexOf("地理图集") === -1,
+    ok(r.navText && r.navText.indexOf("gis") === -1 && r.navText.indexOf("GIS 学习指南") === -1,
        "导航文字里读不到 gis（对外人完全不显现）");
     ok(r.htmlGis === null, "未解锁时 html 上没有 data-gis");
 

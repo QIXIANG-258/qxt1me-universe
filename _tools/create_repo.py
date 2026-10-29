@@ -14,7 +14,7 @@ import urllib.request
 
 OWNER = "QIXIANG-258"
 REPO = "qxt1me-universe"
-DESC = "憩想的个人站群总入口（universe）—— 纯静态导航页，配色与排版对齐 blog 摄影小站"
+DESC = "憩想的个人站群总入口（universe）—— 纯静态导航页，配色与排版对齐 blog 摄影博客"
 TOPICS = ["startpage", "navigation", "static-site", "cloudflare-workers", "personal-website"]
 
 
