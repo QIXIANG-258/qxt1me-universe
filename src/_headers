@@ -30,7 +30,7 @@
   #       比「不写」（= 默认 self 但语义靠默认值）更明确，也便于以后审计。
   Permissions-Policy: camera=(), microphone=(), geolocation=(self)
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-l2HbHBvBkk8CcE36K7EladlpfpP1qL1JozZriwLGTVw=' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com; font-src 'self'; connect-src 'self' https://api.open-meteo.com https://cloudflareinsights.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-RVdrDoRc6OZ9taqc7qjNbacbY9/tcfn9N8iwidKS4Yk=' 'sha256-l2HbHBvBkk8CcE36K7EladlpfpP1qL1JozZriwLGTVw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com; font-src 'self'; connect-src 'self' https://api.open-meteo.com https://cloudflareinsights.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 
 # ↓ 以下是缓存策略，规则之间互不重叠
 
@@ -42,15 +42,22 @@
 /fonts/*.woff2
   Cache-Control: public, max-age=31536000, immutable
 
-# css/js：文件名固定、**且本站的 index.html 不带 ?v= 指纹**
-# （与 gear 不同 —— gear 有 ?v=20261007a，本站是裸引用）。
-# 所以不能用 immutable（否则改版后访客永远刷不掉），给 300s：
-# 作者改完刷新几次就能看到，代价只是一天几次的 304 协商。
+# css/js：**已改成带内容指纹**（2026-10-29，kimi 报告 O-03）。
+# index.html / 404.html 里的引用现在都是 `css/style.css?v=55a2cb6c05` 这种形态，
+# 指纹由 `项目要点/04-站群工具/fingerprint_assets.py` 按文件 sha1 前 10 位生成。
+#
+# 🔑 顺序不能反：**先让 URL 随内容变，再把缓存放到一年**。
+# 反过来做（先长缓存、后补指纹）中间那段窗口里，改了内容的老访客会永远吃旧版
+# 且没有任何报错 —— 这正是原先不敢开 immutable、只能给 300s 的原因。
+# 现在 URL 变了就是新资源，老 URL 的内容永不再变，immutable 才是安全的。
+#
+# ⚠️ 改完 css/js 必须重跑一次 fingerprint_assets.py，否则 URL 不变、
+#    浏览器还在用一年缓存 → 等于「改了没生效」，排查起来极费时间。
 /css/*
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=31536000, immutable
 
 /js/*
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=31536000, immutable
 
 # robots.txt / sitemap.xml（2026-10-08 补）—— 与 canonical / OG 一同落地。
 # 这两个文件**会随每次改版重写**（sitemap 有 lastmod，robots 可能加新规则），
