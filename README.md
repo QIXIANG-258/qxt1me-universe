@@ -38,6 +38,8 @@
 ```
 src/
   index.html        页面（内联线性 SVG 图标，无外部 CDN）
+  privacy.html      隐私说明（与站群其余四站同一套事实，由 项目要点/04-站群工具/make_privacy.py 生成）
+  404.html          404（也有一小段主题防闪内联脚本 —— CSP 的 hash 必须跟着它更新）
   css/fonts.css     字体声明 —— 从 blog 机械抽取，勿手改
   css/style.css     设计令牌 + 排版 + 质感
   js/app.js         时钟 / 搜索 / 中英切换 / 明暗切换 / **访客记录**
@@ -384,6 +386,40 @@ npx --yes wrangler@4 deploy
 6. `_shots/` 是探针产物，可按需清理。
 7. **三板块的版心是 70em**（量出来的，不是拍的）：三块 `max-content` 固有宽度最宽 356px，
    `3 × 356 + 2 × 22.4(gap) ≈ 1113px ≈ 70em`。窄了会把长域名挤断。
+
+## 缓存与隐私（2026-10-29）
+
+### `?v=` 指纹 + 一年 immutable
+
+`/css/*` 与 `/js/*` 现在是 `max-age=31536000, immutable`，前提是**引用都带 `?v=`**：
+
+```
+css/fonts.css?v=d88428743c
+css/style.css?v=55a2cb6c05
+js/app.js?v=d36118ead5
+```
+
+改完 css/js 必须跑一次：
+
+```powershell
+python ..\项目要点\04-站群工具\fingerprint_assets.py
+```
+
+它会按内容算 sha1 前 10 位补进 HTML，并**先检查**「immutable 路径的引用是否都带了指纹」——
+顺序很重要：检查放在改写之后，工具会自己补齐缺口再检查，永远绿（阴性对照一次都没红过）。
+
+> ⚠️ 改内联脚本后还要跑 `update_csp_hashes.py`，否则 CSP 的 sha256 白名单对不上，
+> 脚本被**静默拦掉**：页面还在、内容也在，只是那段功能永远不跑。
+> 本站有**两段**内联脚本（`index.html` 与 `404.html` 各一段防闪），两份 hash 都要在。
+
+### `/privacy` 页
+
+五站统一有 `https://universe.qxt1me.dpdns.org/privacy`，内容依据
+`项目要点/04-站群工具/probe_privacy_facts.js` 的**实测输出**（第三方请求 / Cookie / localStorage 清单），
+不凭印象写。本站特有事实：`api.open-meteo.com`（天气）、`www.google.com/generate_204`
+（连通性探针，**失败是预期结果**）、`/api/visits`（访客计数，IP 走 FNV-1a 假名化哈希、当日 24:00 过期）。
+
+改了第三方请求就要同时改 `/privacy` 与 `_headers` 的 CSP —— 三者是同一件事的三个面。
 
 ## 天空遮罩与页脚：两个只在特定视口才暴露的几何坑
 
