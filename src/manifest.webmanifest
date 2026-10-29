@@ -1,7 +1,7 @@
 {
   "name": "universe · 憩想",
   "short_name": "universe",
-  "description": "憩想的个人站群总入口：摄影小站、器材库与其他子站。",
+  "description": "憩想的个人站群总入口：摄影博客、器材筛选库与其他子站。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
