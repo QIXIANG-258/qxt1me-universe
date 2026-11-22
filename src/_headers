@@ -16,6 +16,15 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
+  # 2026-11-22 补：外部检测报告点名的四项里，只有这两个是零风险的。
+  # COOP 防「被同名标签页反向劫持 window.opener」——本站没有任何
+  #   window.open / postMessage，开 same-origin 不会影响任何功能。
+  # CORP 防别的站点用 <script>/<img> 把我们的资源当子资源加载后读取侧信道。
+  # 另外两项**故意不加**，理由写在 build/make_site.py 的 write_pages_headers：
+  #   COEP require-corp 会让 R2 上的照片全被拒（R2 不发 CORP）；
+  #   Trusted-Types 要求把全站 innerHTML 改成 TrustedHTML，等于重写渲染层。
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
   # 🔴 2026-10-08 修：原来这里写的是 `geolocation=()` —— 那是**从 gear 抄过来的**，
   #    而 gear / blog / 2048 三站都不需要定位，禁掉是对的；
   #    本站是**唯一用定位的站**（天气「访客定位优先，失败落成都」），
