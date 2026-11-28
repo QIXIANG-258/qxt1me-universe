@@ -135,12 +135,16 @@ python -m http.server 8801 --bind 127.0.0.1
 # 打开 http://127.0.0.1:8802/
 ```
 
-## 验收（浏览器探针，139 项）
+## 验收（浏览器探针，141 项）
 ```bash
 # 需要 src 已在跑（同上），并已装 ws（Node 的 WebSocket 客户端）
 set NODE_PATH=<放 ws 的 node_modules 目录>
 node _tools/probe_universe.js
 ```
+
+> ⚠️ **本地验收请用 `_tools\_serve_with_headers.js`（起在 8820），不要用 `python -m http.server`**。
+> 后者不读 `_headers`，会让「robots.txt / sitemap.xml 缓存 1 小时」两条
+> 得到 `no-store` 而报假红（2026-11-28 实测：8802 上 139/141，8820 上 141/141）。
 
 **验线上**（这个才是真验收）：
 
@@ -152,6 +156,21 @@ node _tools/probe_universe.js
 > ⚠️ 探针会按 `PROBE_URL` 自动决定挂不挂代理：目标是本机就不挂，
 > 是线上就挂 `127.0.0.1:7897`（本机直连 `workers.dev` 与自定义域会失败）。
 > 用 `PROBE_PROXY` 可覆盖。
+
+### 2026-11-28 补：触控热区（`@media (pointer: coarse)` 内，视觉尺寸不动）
+
+外部报告量的是按钮的视觉尺寸，判「可点区域 30–36px」。实际按命中区补到了 44：
+
+| 元素 | 视觉 | 热区 |
+|---|---|---|
+| `.tool-btn`（右上工具钮） | 39 | 47（`::after{inset:-4px}`） |
+| `.contact-btn` / `.contact-a` | 34.2 | 46（纵向 `inset:-6px 0`，横向本就够） |
+| `.foot-contact` 行距 | `.1em`（≈1.4px） | coarse 下 14px |
+
+> 最后一条是必须的：两个 44px 热区在 1.4px 行距下会上下互压，
+> 实测下方按钮的向下命中半径只有 16px（被上面那颗挡住）。
+> `inset` 的参照是**内边距盒**不是边框盒；`<select>` 不渲染伪元素（本站无此问题）。
+> 验收：`D:\dsh_blog_proj\_probe_touch_hit.js hit <url> ...`。
 
 ### 搜索引擎线路专项（`_tools/probe_engine_route.js`，22 项）
 
