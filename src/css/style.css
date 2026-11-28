@@ -1021,6 +1021,7 @@ html[data-theme="light"] .scene[data-daypart="dusk"] ~ * .clock-date i {
    整条改成 flex 不换行，图标与文字垂直居中。 */
 .contact-btn,
 .contact-a {
+  /* position:relative 在这条规则末尾已经有一份（早前为 ::before 加的），热区伪元素共用。 */
   display: inline-flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -1419,6 +1420,7 @@ html[lang="en"] .foot-name {
    ★ 2026-10-07 第二轮：右上角加了 Github，作者要求「三个图标加大一点」，
      所以整体放大约 20%（字号 11.5→13px、内距 7/12→9/14px、图标 1.25→1.45em）。 */
 .tool-btn {
+  position: relative;            /* 伪元素热区要锚在按钮上，见文件末 pointer:coarse 段 */
   display: inline-flex;
   align-items: center;
   gap: .45em;
@@ -1808,4 +1810,24 @@ html[data-gis="on"] .container a#gisEntry[hidden] {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
   .tool-btn:hover, .tool-btn:active { transform: none; }
+}
+
+/* ── 触控热区（2026-11-28）────────────────────────────────
+   视觉尺寸不动，用伪元素把点到区撑到 44（四站同一套做法，探针
+   D:\dsh_blog_proj\_probe_touch_hit.js）。
+   实测：.tool-btn 高 39、宽 44–83；.contact-btn 高 34、.contact-a 高 42。
+     · ⚠️ inset 参照内边距盒：这些按钮都有 1px 边框，39 高的按钮内边距盒
+       只有 37，-4 出来是 45（够了）；-3 只有 43，差 1px 就是不合格。
+       横向 44+8=52 ≥ 44，.tools 的 gap 8 ≤ 8，两颗热区相接不重叠。
+     · 联系方式两颗只补纵向（inset 左右写 0）：它们上下叠着，横向撑开
+       会互抢，而宽度本来就 140 / 271。纵向 -6：34.2 的按钮内边距盒 32.2
+       → 44.2，刚够；两颗之间的行距必须 > 12，否则上下热区会相交。
+   只写在 pointer:coarse 里：桌面用鼠标不需要，伪元素还会盖住相邻链接。 */
+@media (pointer: coarse){
+  /* 联系方式两行原本只隔 .1em（≈1.4px）—— 两颗 44 热区上下必然互压，
+     所以行距必须给足：6+6 = 12 ≤ 14，相接不重叠。 */
+  .foot-contact{ row-gap:14px; }
+  .tool-btn::after{ content:""; position:absolute; inset:-4px; }
+  .contact-btn::after,
+  .contact-a::after{ content:""; position:absolute; inset:-6px 0; }
 }
